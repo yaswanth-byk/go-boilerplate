@@ -23,10 +23,11 @@ jobs:
           cache-dependency-path: ./backend/go.sum
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: latest
+          version: v2.1
           working-directory: ./backend
+          args: --timeout=3m
 
   test:
     name: Test
