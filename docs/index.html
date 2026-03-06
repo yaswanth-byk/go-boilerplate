@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Go Boilerplate — Documentation</title>
+  <meta name="description" content="Production-ready Go + TypeScript monorepo boilerplate with Echo, PostgreSQL, Redis, Clerk auth, New Relic, and more.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a href="index.html" class="sidebar-logo">
+          <div class="sidebar-logo-icon">Go</div>
+          <div>
+            <div class="sidebar-logo-text">Go Boilerplate</div>
+            <div class="sidebar-logo-version">v1.0.0</div>
+          </div>
+        </a>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-label">Overview</div>
+          <a href="index.html" class="nav-link active"><span class="nav-icon">🏠</span> Introduction</a>
+          <a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a>
+          <a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Backend</div>
+          <a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a>
+          <a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a>
+          <a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a>
+          <a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a>
+          <a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a>
+          <a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a>
+          <a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a>
+          <a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a>
+          <a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a>
+          <a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Packages</div>
+          <a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Quality</div>
+          <a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a>
+        </div>
+      </nav>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <div class="content">
+        <div class="hero">
+          <h1>Go Boilerplate</h1>
+          <div class="hero-badges">
+            <span class="hero-badge">🔵 Go 1.21+</span>
+            <span class="hero-badge">🟣 Echo v4</span>
+            <span class="hero-badge">🐘 PostgreSQL</span>
+            <span class="hero-badge">🔴 Redis</span>
+            <span class="hero-badge">🟢 New Relic</span>
+            <span class="hero-badge">🔒 Clerk Auth</span>
+            <span class="hero-badge">📦 Turborepo</span>
+          </div>
+          <p class="subtitle">
+            A production-ready, full-stack monorepo boilerplate built with <strong>Go</strong> and <strong>TypeScript</strong>.
+            It comes pre-configured with authentication, observability, background jobs, transactional emails,
+            database migrations, and a comprehensive testing framework — so you can focus on building your product.
+          </p>
+        </div>
+
+        <h2>What's Included</h2>
+
+        <div class="card-grid">
+          <div class="card">
+            <div class="card-title"><span class="card-icon">🌐</span> HTTP Server</div>
+            <p class="card-desc">Echo v4 with configurable timeouts, CORS, security headers, and graceful shutdown.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">🔐</span> Authentication</div>
+            <p class="card-desc">Clerk SDK integration with JWT validation, session claims, and role-based access.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">🗄️</span> Database</div>
+            <p class="card-desc">PostgreSQL with pgx v5 connection pooling, embedded tern migrations, and query tracing.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">⏳</span> Job Queue</div>
+            <p class="card-desc">Asynq (Redis-backed) with priority queues, retries, and configurable concurrency.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">📧</span> Emails</div>
+            <p class="card-desc">Resend API with Go HTML templates and asynchronous sending via the job queue.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">📊</span> Observability</div>
+            <p class="card-desc">New Relic APM with distributed tracing across HTTP, DB, Redis, and log forwarding.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">📡</span> Generic Handlers</div>
+            <p class="card-desc">Go generics-based handler system with automatic validation, logging, and tracing.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">🛡️</span> Error Handling</div>
+            <p class="card-desc">Structured errors with automatic SQL-to-HTTP mapping and user-friendly messages.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">🧪</span> Testing</div>
+            <p class="card-desc">Testcontainers for real PostgreSQL integration tests with per-test isolation.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">📦</span> TypeScript</div>
+            <p class="card-desc">Zod schemas, ts-rest OpenAPI generation, and React Email templates in a monorepo.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">🔗</span> Middleware</div>
+            <p class="card-desc">9-layer pipeline: rate limiting, CORS, request IDs, auth, tracing, and logging.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">⚙️</span> Configuration</div>
+            <p class="card-desc">Type-safe config from env vars with koanf, validation, and sensible defaults.</p>
+          </div>
+        </div>
+
+        <h2>Prerequisites</h2>
+        <p>Before getting started, make sure you have the following tools installed:</p>
+
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>Version</th><th>Install Command</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Go</strong></td><td>≥ 1.21</td>
+              <td><code>brew install go</code> or <a href="https://go.dev/dl/" target="_blank">go.dev/dl</a></td>
+              <td>Backend language runtime and compiler</td>
+            </tr>
+            <tr>
+              <td><strong>Node.js</strong></td><td>≥ 22</td>
+              <td><code>brew install node</code> or <a href="https://nodejs.org/" target="_blank">nodejs.org</a></td>
+              <td>Required for TypeScript packages (Zod, OpenAPI, emails)</td>
+            </tr>
+            <tr>
+              <td><strong>Bun</strong></td><td>≥ 1.3</td>
+              <td><code>curl -fsSL https://bun.sh/install | bash</code></td>
+              <td>Fast JS package manager used by the monorepo</td>
+            </tr>
+            <tr>
+              <td><strong>PostgreSQL</strong></td><td>≥ 15</td>
+              <td><code>brew install postgresql</code></td>
+              <td>Primary database for all application data</td>
+            </tr>
+            <tr>
+              <td><strong>Redis</strong></td><td>≥ 7</td>
+              <td><code>brew install redis</code></td>
+              <td>Backend for background job queue (Asynq)</td>
+            </tr>
+            <tr>
+              <td><strong>Task</strong></td><td>≥ 3</td>
+              <td><code>brew install go-task</code></td>
+              <td>Task runner for build, test, lint, and run commands</td>
+            </tr>
+            <tr>
+              <td><strong>Docker</strong></td><td>Latest</td>
+              <td><a href="https://www.docker.com/" target="_blank">docker.com</a></td>
+              <td>Required only for running integration tests (Testcontainers)</td>
+            </tr>
+            <tr>
+              <td><strong>golangci-lint</strong></td><td>Latest</td>
+              <td><code>brew install golangci-lint</code></td>
+              <td>Go linter aggregator for code quality checks</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>See <a href="getting-started.html">Getting Started</a> for detailed installation and setup instructions.</p>
+
+        <h2>How This Documentation Is Organized</h2>
+
+        <p>Each page focuses on a specific layer of the application. You can read them in order or jump to whatever interests you.</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Page</th>
+              <th>What You'll Learn</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><a href="getting-started.html">Getting Started</a></td>
+              <td>Prerequisites, installation, database setup, env config, and running locally</td>
+            </tr>
+            <tr>
+              <td><a href="architecture.html">Architecture</a></td>
+              <td>Monorepo layout, request lifecycle, dependency flow, and project structure</td>
+            </tr>
+            <tr>
+              <td><a href="configuration.html">Configuration</a></td>
+              <td>Every env variable, how config loading works, and the Config struct</td>
+            </tr>
+            <tr>
+              <td><a href="server.html">Server & Routing</a></td>
+              <td>Server lifecycle, dependency container, route registration, and available endpoints</td>
+            </tr>
+            <tr>
+              <td><a href="middleware.html">Middleware</a></td>
+              <td>Every middleware in the pipeline, what each does, and how to add your own</td>
+            </tr>
+            <tr>
+              <td><a href="handlers.html">Handlers</a></td>
+              <td>Go generics handler pattern, request/response types, and building new endpoints</td>
+            </tr>
+            <tr>
+              <td><a href="database.html">Database</a></td>
+              <td>Connection pooling, migrations, query tracing, and working with pgx</td>
+            </tr>
+            <tr>
+              <td><a href="error-handling.html">Error Handling</a></td>
+              <td>HTTP error types, SQL error mapping, global error handler, and error responses</td>
+            </tr>
+            <tr>
+              <td><a href="authentication.html">Authentication</a></td>
+              <td>Clerk integration, JWT validation, session claims, and protecting routes</td>
+            </tr>
+            <tr>
+              <td><a href="background-jobs.html">Background Jobs</a></td>
+              <td>Asynq setup, priority queues, creating tasks, and writing handlers</td>
+            </tr>
+            <tr>
+              <td><a href="email-system.html">Email System</a></td>
+              <td>Resend client, HTML templates, preview data, and sending emails via jobs</td>
+            </tr>
+            <tr>
+              <td><a href="observability.html">Observability</a></td>
+              <td>Zerolog, New Relic integrations, trace context, and production logging</td>
+            </tr>
+            <tr>
+              <td><a href="typescript-packages.html">TypeScript Packages</a></td>
+              <td>Zod schemas, OpenAPI generation, React Email, and Turborepo workflows</td>
+            </tr>
+            <tr>
+              <td><a href="testing.html">Testing</a></td>
+              <td>Testcontainers, test helpers, assertions, transactions, and running tests</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Quick Start</h2>
+
+        <pre><code># Clone & install
+git clone https://github.com/yaswanth-byk/go-boilerplate.git
+cd go-boilerplate
+bun install
+cd apps/backend && go mod download
+
+# Configure
+cp .env.sample .env
+# Edit .env with your database, Clerk, and Resend credentials
+
+# Run
+task run</code></pre>
+
+        <p>Head to <a href="getting-started.html">Getting Started</a> for a detailed walkthrough.</p>
+
+        <div class="page-nav">
+          <div></div>
+          <a href="getting-started.html" class="page-nav-next">
+            <span class="page-nav-label">Next →</span>
+            <span class="page-nav-title">Getting Started</span>
+          </a>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

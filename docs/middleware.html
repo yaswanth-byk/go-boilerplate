@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Middleware — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link active"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>Middleware</h1>
+      <p class="subtitle">The 9-layer middleware pipeline processes every request before it reaches your handler. Each layer adds a specific capability.</p>
+
+      <h2>Files Involved</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">middleware.go</span></td><td>Creates the <code>Middlewares</code> struct and its constructor. This is the entry point that aggregates all middleware modules.</td><td>Groups all middleware into a single struct that can be passed to the router.</td></tr>
+          <tr><td><span class="file-ref">rate-limit.go</span></td><td>In-memory rate limiter (20 req/sec per client) with New Relic custom events for rate limit hits.</td><td>Prevents abuse. Without it, a single client could overwhelm the server.</td></tr>
+          <tr><td><span class="file-ref">request_id.go</span></td><td>Generates or extracts a UUID for each request. Stores it in context and returns it in response headers.</td><td>Request IDs let you trace a single request through all logs, even across services.</td></tr>
+          <tr><td><span class="file-ref">tracing.go</span></td><td>Adds custom attributes (IP, user agent, request ID, route) to the New Relic transaction.</td><td>Enriches New Relic data so you can filter and search by IP, user, or route in the dashboard.</td></tr>
+          <tr><td><span class="file-ref">context.go</span></td><td>Creates a per-request Zerolog logger with request context (ID, method, path, IP, trace IDs, user info).</td><td>Every log line from the request automatically includes context — no need to manually add it.</td></tr>
+          <tr><td><span class="file-ref">auth.go</span></td><td>Validates Clerk JWT tokens, extracts session claims, stores user info in Echo context.</td><td>See the <a href="authentication.html">Authentication</a> page for full details.</td></tr>
+          <tr><td><span class="file-ref">global.go</span></td><td>Global Echo error handler. Catches all errors (including panics) and converts them to the standard JSON format.</td><td>Ensures every error — whether from your code, Echo, or a panic — returns a consistent JSON response.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Pipeline Order</h2>
+      <p>Middleware runs in the exact order shown below. The order matters — for example, the Request ID must run before the Context Enhancer so the logger can include it.</p>
+
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-body">
+            <h4>Rate Limiter</h4>
+            <p><span class="file-ref">rate-limit.go</span></p>
+            <p>Uses Echo's built-in rate limiter middleware configured with an in-memory store. Limits each client IP to <strong>20 requests per second</strong>. When exceeded, immediately returns:</p>
+            <pre><code>HTTP 429 Too Many Requests
+{
+  "code": "RATE_LIMIT_EXCEEDED",
+  "message": "Too many requests",
+  "status": 429
+}</code></pre>
+            <p>Also sends a <code>RateLimitExceeded</code> custom event to New Relic with the client IP and request path.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-body">
+            <h4>CORS</h4>
+            <p>Configured via <code>BOILERPLATE_SERVER.CORS_ALLOWED_ORIGINS</code>. Sets <code>Access-Control-Allow-Origin</code>, <code>Allow-Methods</code>, <code>Allow-Headers</code>, and <code>Allow-Credentials</code>. Handles preflight <code>OPTIONS</code> requests automatically.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-body">
+            <h4>Security Headers</h4>
+            <p>Uses Echo's <code>Secure</code> middleware. Adds standard security headers: <code>X-Frame-Options: SAMEORIGIN</code>, <code>X-Content-Type-Options: nosniff</code>, <code>X-XSS-Protection: 1; mode=block</code>.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-body">
+            <h4>Request ID</h4>
+            <p><span class="file-ref">request_id.go</span></p>
+            <p>Checks for an <code>X-Request-ID</code> header. If present and a valid UUID, uses it. Otherwise generates a new UUID v4. The ID is:</p>
+            <ul>
+              <li>Stored in the Echo context (key: <code>request_id</code>)</li>
+              <li>Added to the response <code>X-Request-ID</code> header</li>
+              <li>Used by all downstream middleware and handlers</li>
+            </ul>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">5</div>
+          <div class="flow-body">
+            <h4>New Relic Transaction</h4>
+            <p>The <code>nrecho-v4</code> integration middleware starts a New Relic transaction for this request. Automatically captured: method, URL, status code, response time, errors.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">6</div>
+          <div class="flow-body">
+            <h4>Enhanced Tracing</h4>
+            <p><span class="file-ref">tracing.go</span></p>
+            <p>Adds custom attributes to the New Relic transaction:</p>
+            <ul>
+              <li><code>request.id</code> — the unique request ID</li>
+              <li><code>request.ip</code> — client IP address</li>
+              <li><code>request.userAgent</code> — browser/client user agent</li>
+              <li><code>request.userId</code> — authenticated user ID (if available)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">7</div>
+          <div class="flow-body">
+            <h4>Context Enrichment</h4>
+            <p><span class="file-ref">context.go</span></p>
+            <p>Creates a new Zerolog logger <strong>for this specific request</strong>. The logger is pre-populated with all available context fields. Every log statement within this request automatically includes this context — you never need to manually add request ID, user ID, etc.</p>
+            <p>Context fields added: <code>request_id</code>, <code>method</code>, <code>path</code>, <code>ip</code>, <code>user_id</code>, <code>trace.id</code>, <code>span.id</code>, <code>entity.name</code>, <code>entity.type</code>, <code>hostname</code>.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">8</div>
+          <div class="flow-body">
+            <h4>Request Logger</h4>
+            <p>Logs the <strong>completed</strong> request (runs after the handler returns). Includes: status code, latency, method, URI, client IP, and any error. Uses appropriate log level:</p>
+            <ul>
+              <li><strong>Info</strong> for 2xx responses (success)</li>
+              <li><strong>Warn</strong> for 4xx responses (client errors)</li>
+              <li><strong>Error</strong> for 5xx responses (server errors)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">9</div>
+          <div class="flow-body">
+            <h4>Panic Recovery</h4>
+            <p>Wraps the handler in a <code>recover()</code>. If your handler code panics (e.g., nil pointer dereference), this catches it and returns a 500 error instead of crashing the entire server process.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>The Middlewares Struct</h2>
+      <pre><code>type Middlewares struct {
+    Auth    *auth         // Clerk JWT validation
+    server  *server.Server
+}
+
+func NewMiddlewares(s *server.Server) *Middlewares {
+    return &Middlewares{
+        Auth:   newAuth(s),
+        server: s,
+    }
+}</code></pre>
+      <p>The struct is intentionally lean. Each middleware is a method on <code>Middlewares</code> (for pipeline middleware) or on the <code>auth</code> sub-struct (for route-level middleware).</p>
+
+      <h2>Global Error Handler</h2>
+      <p><span class="file-ref">global.go</span></p>
+      <p>The global error handler is registered via <code>echo.HTTPErrorHandler</code>. It catches every error and:</p>
+      <ol>
+        <li>Checks if it's an <code>HTTPError</code> (our custom type) → returns that directly</li>
+        <li>Checks if it's an <code>echo.HTTPError</code> (from Echo's built-in errors) → maps to our format</li>
+        <li>Falls back to a generic 500 Internal Server Error</li>
+      </ol>
+      <p>It also logs every error with full context (request ID, user ID, stack trace, error code) and reports it to New Relic.</p>
+
+      <h2>Adding Your Own Middleware</h2>
+      <pre><code>// 1. Create a new file: internal/middleware/my_middleware.go
+func (m *Middlewares) MyMiddleware() echo.MiddlewareFunc {
+    return func(next echo.HandlerFunc) echo.HandlerFunc {
+        return func(c echo.Context) error {
+            // Before handler
+            c.Set("my_data", "hello")
+
+            err := next(c) // Call the next handler
+
+            // After handler
+            return err
+        }
+    }
+}
+
+// 2. Add it to the pipeline in router.go:
+router.Use(middlewares.MyMiddleware())</code></pre>
+
+      <div class="page-nav">
+        <a href="server.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">Server & Routing</span></a>
+        <a href="handlers.html" class="page-nav-next"><span class="page-nav-label">Next →</span><span class="page-nav-title">Handlers</span></a>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

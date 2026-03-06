@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Background Jobs — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link active"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>Background Jobs</h1>
+      <p class="subtitle">Redis-backed asynchronous task processing with Asynq. Run heavy or time-consuming operations outside the HTTP request cycle.</p>
+
+      <h2>Files Involved</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">job.go</span></td><td>Creates the Asynq client (for enqueueing) and server (for processing). Configures concurrency and priority queues. Manages lifecycle (start/stop).</td><td>Email sending, report generation, and other slow operations shouldn't block HTTP responses. This file sets up the infrastructure to process them asynchronously.</td></tr>
+          <tr><td><span class="file-ref">email_tasks.go</span></td><td>Defines task types (constants), payload structs, and task constructor functions for email-related jobs.</td><td>Each job type needs a unique name, a serializable payload, and settings like retry count and timeout. This file is the registry.</td></tr>
+          <tr><td><span class="file-ref">handlers.go</span></td><td>Initializes shared dependencies (like the email client) and contains the handler functions that process tasks.</td><td>When a task is dequeued, Asynq calls the handler registered for that task type. This file maps task types to their processing logic.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>What is Asynq?</h2>
+      <p><a href="https://github.com/hibiken/asynq" target="_blank">Asynq</a> is a Go library for Redis-backed task queues. It works like this:</p>
+      <ol>
+        <li><strong>Producer</strong>: Your HTTP handler creates a task and enqueues it to Redis</li>
+        <li><strong>Redis</strong>: Stores the task in a queue until a worker picks it up</li>
+        <li><strong>Consumer</strong>: The Asynq server (running in a goroutine) dequeues tasks and calls the registered handler</li>
+      </ol>
+
+      <h2>Priority Queues</h2>
+      <p>Three queues with different weights control which tasks get processed first:</p>
+      <table>
+        <thead><tr><th>Queue</th><th>Weight</th><th>Use Case</th></tr></thead>
+        <tbody>
+          <tr><td><code>critical</code></td><td>6</td><td>Password resets, verification emails, payment confirmations</td></tr>
+          <tr><td><code>default</code></td><td>3</td><td>Welcome emails, notification emails, standard tasks</td></tr>
+          <tr><td><code>low</code></td><td>1</td><td>Analytics processing, report generation, cleanup tasks</td></tr>
+        </tbody>
+      </table>
+      <p>Weights determine processing ratio. With 10 workers, roughly 6 will pull from <code>critical</code>, 3 from <code>default</code>, and 1 from <code>low</code> at any given time.</p>
+
+      <h2>Enqueueing a Job</h2>
+      <pre><code>// In a service or handler:
+task, err := job.NewWelcomeEmailTask("user@example.com", "John")
+if err != nil {
+    return err
+}
+
+// Enqueue the task — it will be processed asynchronously
+info, err := server.Job.Client.Enqueue(task)
+if err != nil {
+    logger.Error().Err(err).Msg("failed to enqueue welcome email")
+    return err
+}
+logger.Info().Str("task_id", info.ID).Msg("welcome email task enqueued")</code></pre>
+
+      <h2>Adding a New Job Type</h2>
+
+      <h3>Step 1: Define the task type and payload</h3>
+      <pre><code>// email_tasks.go (or create a new file for non-email tasks)
+
+const TaskInvoiceGeneration = "invoice:generate"
+
+type InvoicePayload struct {
+    OrderID   string `json:"order_id"`
+    UserEmail string `json:"user_email"`
+}
+
+func NewInvoiceTask(orderID, email string) (*asynq.Task, error) {
+    payload, err := json.Marshal(InvoicePayload{
+        OrderID:   orderID,
+        UserEmail: email,
+    })
+    if err != nil {
+        return nil, err
+    }
+
+    return asynq.NewTask(TaskInvoiceGeneration, payload,
+        asynq.MaxRetry(3),               // Retry up to 3 times on failure
+        asynq.Queue("default"),           // Use the default priority queue
+        asynq.Timeout(60*time.Second),    // Timeout after 60 seconds
+    ), nil
+}</code></pre>
+
+      <h3>Step 2: Write the handler</h3>
+      <pre><code>// handlers.go
+
+func (j *JobService) handleInvoiceTask(ctx context.Context, t *asynq.Task) error {
+    var p InvoicePayload
+    if err := json.Unmarshal(t.Payload(), &p); err != nil {
+        return fmt.Errorf("failed to unmarshal invoice payload: %w", err)
+    }
+
+    j.logger.Info().Str("order_id", p.OrderID).Msg("generating invoice")
+
+    // Your invoice generation logic here...
+
+    return nil  // Return nil on success, error to trigger retry
+}</code></pre>
+
+      <h3>Step 3: Register the handler</h3>
+      <pre><code>// job.go — in the Start() method
+
+func (j *JobService) Start() error {
+    mux := asynq.NewServeMux()
+    mux.HandleFunc(TaskWelcome, j.handleWelcomeEmailTask)
+    mux.HandleFunc(TaskInvoiceGeneration, j.handleInvoiceTask)  // Add this
+
+    j.logger.Info().Msg("Starting background job server")
+    return j.server.Start(mux)
+}</code></pre>
+
+      <h2>Task Settings</h2>
+      <table>
+        <thead><tr><th>Option</th><th>Default (Welcome Email)</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>MaxRetry</code></td><td>3</td><td>Number of times to retry on failure. Uses exponential backoff.</td></tr>
+          <tr><td><code>Queue</code></td><td><code>default</code></td><td>Which priority queue to use (<code>critical</code>, <code>default</code>, or <code>low</code>).</td></tr>
+          <tr><td><code>Timeout</code></td><td>30 seconds</td><td>Maximum time the handler has to complete. Prevents hung tasks.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-warning">
+        <div class="callout-title">⚠️ Redis required</div>
+        <p>The job queue requires a running Redis instance. Without Redis, task enqueueing will fail. Make sure <code>BOILERPLATE_REDIS.ADDRESS</code> is set correctly in your <code>.env</code>.</p>
+      </div>
+
+      <div class="page-nav">
+        <a href="authentication.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">Authentication</span></a>
+        <a href="email-system.html" class="page-nav-next"><span class="page-nav-label">Next →</span><span class="page-nav-title">Email System</span></a>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

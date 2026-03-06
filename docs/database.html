@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link active"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>Database</h1>
+      <p class="subtitle">PostgreSQL connection pooling with pgx v5, embedded SQL migrations with tern, and integrated query tracing.</p>
+
+      <h2>Files Involved</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">database.go</span></td><td>Creates the PostgreSQL connection pool (<code>pgxpool.Pool</code>), builds the DSN, configures tracing, and manages pool settings.</td><td>Centralizes all database connection logic. Every part of the app that needs the database gets it from this single pool.</td></tr>
+          <tr><td><span class="file-ref">migrator.go</span></td><td>Runs SQL migrations using <code>tern</code>. Migrations are embedded in the Go binary via <code>go:embed</code>.</td><td>Ensures the database schema is always in sync with the application code. No separate migration tool needed in production.</td></tr>
+          <tr><td><span class="file-ref">migrations/*.sql</span></td><td>Individual SQL migration files. Each file has an "up" section and a "down" section separated by a comment marker.</td><td>Track schema changes over time with version control.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Connection Pool</h2>
+      <p>The database layer uses <a href="https://github.com/jackc/pgx" target="_blank">pgx v5</a> with <code>pgxpool</code> for connection pooling. A connection pool maintains multiple open database connections and reuses them across requests, avoiding the overhead of opening a new connection for every query.</p>
+
+      <h3>How the DSN is built</h3>
+      <pre><code>// Format: postgres://user:password@host:port/database?sslmode=X
+dsn := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+    cfg.Database.User,
+    url.QueryEscape(cfg.Database.Password),  // Handles special chars
+    cfg.Database.Host,
+    cfg.Database.Port,
+    cfg.Database.Name,
+    cfg.Database.SSLMode,
+)</code></pre>
+
+      <div class="callout callout-info">
+        <div class="callout-title">💡 Note</div>
+        <p>The password is URL-encoded with <code>url.QueryEscape()</code>. This means special characters like <code>@</code>, <code>#</code>, <code>%</code> in passwords work correctly without breaking the DSN URL.</p>
+      </div>
+
+      <h3>Pool settings</h3>
+      <table>
+        <thead><tr><th>Setting</th><th>Default</th><th>What It Does</th></tr></thead>
+        <tbody>
+          <tr><td><code>MaxConns</code></td><td>25</td><td>Maximum connections the pool will open simultaneously. Set this based on your database's <code>max_connections</code>.</td></tr>
+          <tr><td><code>MinConns</code></td><td>25</td><td>Minimum idle connections to keep open. Pre-warms the pool so requests don't wait for connection creation.</td></tr>
+          <tr><td><code>MaxConnLifetime</code></td><td>5 min</td><td>Maximum time a connection stays open before being recycled. Prevents stale connections.</td></tr>
+          <tr><td><code>MaxConnIdleTime</code></td><td>5 min</td><td>Maximum time an idle connection sits unused before being closed.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Query Tracing (Multi-Tracer)</h2>
+      <p>The connection pool is configured with a <strong>multi-tracer</strong> that pipes query information to multiple destinations:</p>
+
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-title"><span class="card-icon">🟢</span> New Relic Tracer</div>
+          <p class="card-desc">Every SQL query appears as a database segment in New Relic. You can see query text, duration, and which transaction triggered it. Only active when a New Relic license key is configured.</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-icon">📝</span> Zerolog Tracer</div>
+          <p class="card-desc">In <code>local</code> environment only, SQL queries are logged to the console via <code>pgx-zerolog</code>. Useful for debugging — you can see every query that runs.</p>
+        </div>
+      </div>
+
+      <h2>Using the Database in Code</h2>
+      <p>The connection pool is available via <code>server.DB.Pool</code>:</p>
+      <pre><code>// In a repository:
+func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
+    var user model.User
+    err := r.server.DB.Pool.QueryRow(ctx,
+        `SELECT id, name, email, created_at, updated_at
+         FROM users WHERE id = $1`, id,
+    ).Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+
+    if err != nil {
+        return nil, sqlerr.HandleError(err)  // Auto-maps to HTTP errors
+    }
+    return &user, nil
+}</code></pre>
+
+      <h2>Migrations</h2>
+
+      <h3>How migrations work</h3>
+      <p>Migrations use <a href="https://github.com/jackc/tern" target="_blank">tern</a> (by the same author as pgx). Key features:</p>
+      <ul>
+        <li><strong>Embedded in the binary:</strong> Migration SQL files are compiled into the Go binary using <code>//go:embed migrations/*.sql</code>. This means you don't need to ship migration files separately in production.</li>
+        <li><strong>Versioned:</strong> Each migration has a number prefix (<code>001_</code>, <code>002_</code>, etc.). Tern tracks which migrations have been applied in a <code>schema_version</code> table.</li>
+        <li><strong>Up/Down:</strong> Each file contains both "up" and "down" SQL separated by <code>---- create above / drop below ----</code>.</li>
+      </ul>
+
+      <h3>Migration file format</h3>
+      <pre><code>-- 002_create_users.sql
+
+-- Write your migrate up statements here
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+---- create above / drop below ----
+
+-- Write your migrate down statements here
+DROP TABLE IF EXISTS users;</code></pre>
+
+      <h3>Creating a new migration</h3>
+      <pre><code>cd apps/backend
+task migrations:new name=create_users</code></pre>
+      <p>This creates a numbered SQL file in <code>internal/database/migrations/</code>.</p>
+
+      <h3>Running migrations</h3>
+      <pre><code># Apply all pending migrations
+task migrations:up</code></pre>
+
+      <div class="callout callout-warning">
+        <div class="callout-title">⚠️ Auto-migration behavior</div>
+        <p>Migrations run <strong>automatically on startup</strong> in all environments except <code>local</code>. In local development, you must run <code>task migrations:up</code> manually. This prevents accidental schema changes during development.</p>
+      </div>
+
+      <div class="page-nav">
+        <a href="handlers.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">Handlers</span></a>
+        <a href="error-handling.html" class="page-nav-next"><span class="page-nav-label">Next →</span><span class="page-nav-title">Error Handling</span></a>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

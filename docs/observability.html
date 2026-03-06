@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Observability — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link active"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>Observability</h1>
+      <p class="subtitle">Structured logging with Zerolog and full-stack tracing with New Relic across HTTP, database, Redis, and application logs.</p>
+
+      <h2>Files Involved</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">logger/logger.go</span></td><td>Creates and configures the Zerolog logger and New Relic application. Handles environment-aware formatting and New Relic log forwarding.</td><td>You need a single place to set up logging and observability for the entire app. This file does both.</td></tr>
+          <tr><td><span class="file-ref">config/observability.go</span></td><td>Defines all observability configuration: logging levels/format, New Relic settings, health check intervals.</td><td>Keeps observability settings organized and provides sensible defaults.</td></tr>
+          <tr><td><span class="file-ref">middleware/tracing.go</span></td><td>Enriches New Relic transactions with request context (IP, user ID, request ID).</td><td>Standard New Relic middleware only captures method/route/status. This adds the custom data you actually filter by.</td></tr>
+          <tr><td><span class="file-ref">middleware/context.go</span></td><td>Creates per-request loggers with all context fields pre-populated.</td><td>Every log line from a request automatically includes trace context — no manual work needed.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Logging with Zerolog</h2>
+      <p><a href="https://github.com/rs/zerolog" target="_blank">Zerolog</a> is a high-performance, zero-allocation JSON logger for Go.</p>
+
+      <h3>Environment-aware output</h3>
+      <table>
+        <thead><tr><th>Environment</th><th>Format</th><th>Example Output</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>local</code> / <code>development</code></td>
+            <td>Pretty console with colors and timestamps</td>
+            <td><pre><code>10:30:00 INF handling request handler=HealthHandler route=/status</code></pre></td>
+          </tr>
+          <tr>
+            <td><code>production</code></td>
+            <td>Structured JSON</td>
+            <td><pre><code>{"level":"info","handler":"HealthHandler","route":"/status","time":"2026-03-06T10:30:00Z"}</code></pre></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Using the logger in your code</h3>
+      <p>The logger is available from the Echo context (enriched per-request) or directly from the server:</p>
+      <pre><code>// From a handler — uses the per-request enriched logger
+func (h *UserHandler) Create(c echo.Context, req *CreateReq) (*UserRes, error) {
+    logger := c.Get("logger").(*zerolog.Logger)
+    logger.Info().Str("email", req.Email).Msg("creating user")
+    // Output: INF creating user email=john@example.com request_id=abc-123 ...
+}
+
+// From a service — uses the server-level logger
+func (s *UserService) ProcessBatch() {
+    s.server.Logger.Info().Int("count", 100).Msg("processing batch")
+}</code></pre>
+
+      <h3>Log fields added automatically</h3>
+      <table>
+        <thead><tr><th>Field</th><th>Added By</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>service</code></td><td>Logger setup</td><td>Service name from config</td></tr>
+          <tr><td><code>environment</code></td><td>Logger setup</td><td>Current environment</td></tr>
+          <tr><td><code>request_id</code></td><td>Context middleware</td><td>Unique request identifier</td></tr>
+          <tr><td><code>method</code></td><td>Context middleware</td><td>HTTP method (GET, POST, etc.)</td></tr>
+          <tr><td><code>path</code></td><td>Context middleware</td><td>Request path</td></tr>
+          <tr><td><code>ip</code></td><td>Context middleware</td><td>Client IP address</td></tr>
+          <tr><td><code>user_id</code></td><td>Context middleware</td><td>Clerk user ID (if authenticated)</td></tr>
+          <tr><td><code>trace.id</code></td><td>Context middleware</td><td>New Relic trace ID</td></tr>
+          <tr><td><code>span.id</code></td><td>Context middleware</td><td>New Relic span ID</td></tr>
+        </tbody>
+      </table>
+
+      <h2>New Relic APM</h2>
+      <p><a href="https://newrelic.com" target="_blank">New Relic</a> provides application performance monitoring. The boilerplate has deep integrations across every layer:</p>
+
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-title"><span class="card-icon">🌐</span> HTTP Transactions</div>
+          <p class="card-desc">Every HTTP request is captured as a New Relic transaction via <code>nrecho-v4</code>. Includes method, route, status, response time, and custom attributes (IP, user ID, request ID).</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-icon">🗄️</span> Database Queries</div>
+          <p class="card-desc">Every SQL query appears as a database segment via <code>nrpgx5</code>. Shows query text, duration, and which transaction triggered it.</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-icon">🔴</span> Redis Commands</div>
+          <p class="card-desc">Every Redis command is traced via <code>nrredis-v9</code>. Shows command name, key, and duration.</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-icon">📝</span> Log Forwarding</div>
+          <p class="card-desc">All Zerolog output is forwarded to New Relic Logs via <code>zerologWriter</code>. Logs are automatically linked to the transaction they belong to.</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-icon">🐛</span> Error Tracing</div>
+          <p class="card-desc">Errors are reported to New Relic with full stack traces via <code>nrpkgerrors</code>. Compatible with <code>pkg/errors</code> wrapped errors.</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-icon">📊</span> Custom Events</div>
+          <p class="card-desc">Custom events like <code>RateLimitExceeded</code> and <code>HealthCheckFailed</code> are sent to New Relic for alerting.</p>
+        </div>
+      </div>
+
+      <h3>Disabling New Relic</h3>
+      <p>Simply leave <code>BOILERPLATE_OBSERVABILITY.NEW_RELIC.LICENSE_KEY</code> empty in your <code>.env</code>. All New Relic integrations become no-ops — no code changes needed, no performance overhead.</p>
+
+      <h2>The LoggerService Struct</h2>
+      <pre><code>type LoggerService struct {
+    NRApp *newrelic.Application  // New Relic application instance
+}</code></pre>
+      <p>This struct wraps the New Relic application. It's passed to the server so database, Redis, and middleware can access it for instrumentation. If New Relic is disabled, <code>NRApp</code> is <code>nil</code>, and all integrations check for <code>nil</code> before using it.</p>
+
+      <div class="page-nav">
+        <a href="email-system.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">Email System</span></a>
+        <a href="typescript-packages.html" class="page-nav-next"><span class="page-nav-label">Next →</span><span class="page-nav-title">TypeScript Packages</span></a>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

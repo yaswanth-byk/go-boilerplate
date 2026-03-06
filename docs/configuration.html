@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link active"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>Configuration</h1>
+      <p class="subtitle">How the application loads, validates, and uses its configuration. Every environment variable, what it controls, and how the Config struct is assembled.</p>
+
+      <h2>Files Involved</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">config.go</span></td><td>Defines all config structs (<code>Config</code>, <code>ServerConfig</code>, <code>DatabaseConfig</code>, etc.), loads env vars via koanf, and validates using <code>go-playground/validator</code>.</td></tr>
+          <tr><td><span class="file-ref">observability.go</span></td><td>Defines <code>ObservabilityConfig</code> with sub-configs for logging, New Relic, and health checks. Provides sensible defaults and validation.</td></tr>
+          <tr><td><span class="file-ref">.env.sample</span></td><td>Template file showing every available environment variable with example values. Copy this to <code>.env</code> for local development.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>How Config Loading Works</h2>
+      <p>Configuration loading happens in <code>config.LoadConfig()</code> and follows four sequential steps:</p>
+
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-body">
+            <h4>Auto-load .env file</h4>
+            <p>The import <code>_ "github.com/joho/godotenv/autoload"</code> automatically reads the <code>.env</code> file when the program starts. This is a blank import — including it is enough to trigger the loading. This means your <code>.env</code> file is read <strong>before</strong> any Go code runs.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-body">
+            <h4>Read environment variables with koanf</h4>
+            <p><a href="https://github.com/knadh/koanf" target="_blank">koanf</a> reads all environment variables that start with <code>BOILERPLATE_</code>, strips the prefix, and converts dots to nested keys. For example:<br>
+            <code>BOILERPLATE_DATABASE.HOST</code> → <code>database.host</code></p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-body">
+            <h4>Unmarshal into typed struct</h4>
+            <p>The flat key-value map is unmarshalled into the <code>Config</code> struct using koanf's struct unmarshaller. Each field's <code>koanf</code> tag maps to the env var name.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-body">
+            <h4>Validate with go-playground/validator</h4>
+            <p>Every field with a <code>validate:"required"</code> tag is checked. If any required field is missing, the application panics with a clear error message showing which fields failed validation.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>The Config Struct</h2>
+      <pre><code>type Config struct {
+    Primary       Primary              `koanf:"primary" validate:"required"`
+    Server        ServerConfig         `koanf:"server" validate:"required"`
+    Database      DatabaseConfig       `koanf:"database" validate:"required"`
+    Auth          AuthConfig           `koanf:"auth" validate:"required"`
+    Redis         RedisConfig          `koanf:"redis" validate:"required"`
+    Integration   IntegrationConfig    `koanf:"integration" validate:"required"`
+    Observability *ObservabilityConfig `koanf:"observability"`
+}</code></pre>
+
+      <div class="callout callout-info">
+        <div class="callout-title">💡 Note</div>
+        <p><code>Observability</code> is a pointer (<code>*ObservabilityConfig</code>) and not required. If no observability env vars are set, it defaults to sensible values via <code>DefaultObservabilityConfig()</code>. All other sections are required — the app won't start without them.</p>
+      </div>
+
+      <h2>Complete Environment Variable Reference</h2>
+
+      <h3>Primary</h3>
+      <table>
+        <thead><tr><th>Variable</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>BOILERPLATE_PRIMARY.ENV</code></td><td>string</td><td>—</td><td>Environment name: <code>local</code>, <code>development</code>, or <code>production</code>. Controls logging format, migration behavior, and stack traces.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Server</h3>
+      <table>
+        <thead><tr><th>Variable</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>BOILERPLATE_SERVER.PORT</code></td><td>string</td><td><code>8080</code></td><td>TCP port the HTTP server listens on.</td></tr>
+          <tr><td><code>BOILERPLATE_SERVER.READ_TIMEOUT</code></td><td>int</td><td><code>30</code></td><td>Max seconds to read the entire request (headers + body).</td></tr>
+          <tr><td><code>BOILERPLATE_SERVER.WRITE_TIMEOUT</code></td><td>int</td><td><code>30</code></td><td>Max seconds to write the response.</td></tr>
+          <tr><td><code>BOILERPLATE_SERVER.IDLE_TIMEOUT</code></td><td>int</td><td><code>60</code></td><td>Max seconds to keep idle connections alive (keep-alive).</td></tr>
+          <tr><td><code>BOILERPLATE_SERVER.CORS_ALLOWED_ORIGINS</code></td><td>string</td><td>—</td><td>Comma-separated origins for CORS. Example: <code>http://localhost:3000</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Database</h3>
+      <table>
+        <thead><tr><th>Variable</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>BOILERPLATE_DATABASE.HOST</code></td><td>string</td><td><code>localhost</code></td><td>PostgreSQL server hostname.</td></tr>
+          <tr><td><code>BOILERPLATE_DATABASE.PORT</code></td><td>int</td><td><code>5432</code></td><td>PostgreSQL server port.</td></tr>
+          <tr><td><code>BOILERPLATE_DATABASE.USER</code></td><td>string</td><td><code>postgres</code></td><td>Database username.</td></tr>
+          <tr><td><code>BOILERPLATE_DATABASE.PASSWORD</code></td><td>string</td><td>—</td><td>Database password. Special characters are URL-encoded automatically.</td></tr>
+          <tr><td><code>BOILERPLATE_DATABASE.NAME</code></td><td>string</td><td><code>boilerplate</code></td><td>Database name to connect to.</td></tr>
+          <tr><td><code>BOILERPLATE_DATABASE.SSL_MODE</code></td><td>string</td><td><code>disable</code></td><td>SSL mode: <code>disable</code>, <code>require</code>, <code>verify-ca</code>, <code>verify-full</code>.</td></tr>
+          <tr><td><code>BOILERPLATE_DATABASE.MAX_OPEN_CONNS</code></td><td>int</td><td><code>25</code></td><td>Maximum number of open connections in the pool.</td></tr>
+          <tr><td><code>BOILERPLATE_DATABASE.MAX_IDLE_CONNS</code></td><td>int</td><td><code>25</code></td><td>Maximum number of idle connections in the pool.</td></tr>
+          <tr><td><code>BOILERPLATE_DATABASE.CONN_MAX_LIFETIME</code></td><td>int</td><td><code>300</code></td><td>Maximum lifetime of a connection in seconds before it's recycled.</td></tr>
+          <tr><td><code>BOILERPLATE_DATABASE.CONN_MAX_IDLE_TIME</code></td><td>int</td><td><code>300</code></td><td>Maximum time (seconds) a connection can sit idle before being closed.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Auth, Redis & Integrations</h3>
+      <table>
+        <thead><tr><th>Variable</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>BOILERPLATE_AUTH.SECRET_KEY</code></td><td>string</td><td>Clerk secret key for JWT verification. Get this from your <a href="https://clerk.com" target="_blank">Clerk dashboard</a>.</td></tr>
+          <tr><td><code>BOILERPLATE_REDIS.ADDRESS</code></td><td>string</td><td>Redis connection URL. Format: <code>redis://host:port</code></td></tr>
+          <tr><td><code>BOILERPLATE_INTEGRATION.RESEND_API_KEY</code></td><td>string</td><td>API key for <a href="https://resend.com" target="_blank">Resend</a> email service.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Observability</h3>
+      <table>
+        <thead><tr><th>Variable</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.SERVICE_NAME</code></td><td>string</td><td><code>boilerplate</code></td><td>Service name shown in logs and New Relic.</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.ENVIRONMENT</code></td><td>string</td><td><code>development</code></td><td>Overridden by <code>PRIMARY.ENV</code> at runtime.</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.LOGGING.LEVEL</code></td><td>string</td><td><code>debug</code></td><td>Log level: <code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code>.</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.LOGGING.FORMAT</code></td><td>string</td><td><code>console</code></td><td>Log format: <code>console</code> (pretty) or <code>json</code> (structured).</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.LOGGING.SLOW_QUERY_THRESHOLD</code></td><td>duration</td><td><code>100ms</code></td><td>Queries slower than this are logged as warnings.</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.NEW_RELIC.LICENSE_KEY</code></td><td>string</td><td>—</td><td>New Relic license key. Leave empty to disable all New Relic features.</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.NEW_RELIC.APP_LOG_FORWARDING_ENABLED</code></td><td>bool</td><td><code>true</code></td><td>Forward logs to New Relic Logs.</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.NEW_RELIC.DISTRIBUTED_TRACING_ENABLED</code></td><td>bool</td><td><code>true</code></td><td>Enable distributed tracing across services.</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.NEW_RELIC.DEBUG_LOGGING</code></td><td>bool</td><td><code>false</code></td><td>Log New Relic agent debug output (very verbose, for troubleshooting only).</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.HEALTH_CHECKS.ENABLED</code></td><td>bool</td><td><code>true</code></td><td>Enable periodic health checks.</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.HEALTH_CHECKS.INTERVAL</code></td><td>duration</td><td><code>30s</code></td><td>How often to run background health checks.</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.HEALTH_CHECKS.TIMEOUT</code></td><td>duration</td><td><code>5s</code></td><td>Timeout for individual health check probes.</td></tr>
+          <tr><td><code>BOILERPLATE_OBSERVABILITY.HEALTH_CHECKS.CHECKS</code></td><td>string</td><td><code>database,redis</code></td><td>Comma-separated list of services to check.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>How Environment Affects Behavior</h2>
+      <table>
+        <thead><tr><th>Behavior</th><th><code>local</code></th><th><code>development</code></th><th><code>production</code></th></tr></thead>
+        <tbody>
+          <tr><td>Auto-run migrations on startup</td><td>❌ No</td><td>✅ Yes</td><td>✅ Yes</td></tr>
+          <tr><td>SQL query logging to console</td><td>✅ Yes (pgx-zerolog)</td><td>❌ No</td><td>❌ No</td></tr>
+          <tr><td>Log format</td><td>Pretty console</td><td>Pretty console</td><td>JSON</td></tr>
+          <tr><td>Stack traces in error logs</td><td>✅ Yes</td><td>✅ Yes</td><td>❌ No</td></tr>
+          <tr><td>Default log level</td><td>debug</td><td>debug</td><td>info</td></tr>
+          <tr><td>New Relic log forwarding</td><td>If configured</td><td>If configured</td><td>✅ Yes (via zerologWriter)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="page-nav">
+        <a href="architecture.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">Architecture</span></a>
+        <a href="server.html" class="page-nav-next"><span class="page-nav-label">Next →</span><span class="page-nav-title">Server & Routing</span></a>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

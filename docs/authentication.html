@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Authentication — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link active"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>Authentication</h1>
+      <p class="subtitle">JWT-based authentication via Clerk. The middleware validates tokens, extracts session claims, and stores user context for downstream handlers.</p>
+
+      <h2>Files Involved</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">middleware/auth.go</span></td><td>Defines the <code>RequireAuth</code> middleware that validates Clerk JWTs and extracts session claims.</td><td>Protects endpoints that require a logged-in user. Extracts user ID, role, and permissions from the JWT.</td></tr>
+          <tr><td><span class="file-ref">service/auth.go</span></td><td>Initializes the Clerk SDK with the secret key from config.</td><td>Clerk needs the secret key set once at startup. This service handles that initialization.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>What is Clerk?</h2>
+      <p><a href="https://clerk.com" target="_blank">Clerk</a> is a third-party authentication service that handles user registration, login, session management, and organization features. Your frontend uses Clerk's SDKs to authenticate users — Clerk issues a JWT — and this backend validates that JWT on protected routes.</p>
+
+      <h2>How Auth Works</h2>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-body">
+            <h4>Frontend sends JWT</h4>
+            <p>The frontend includes the Clerk session token in the <code>Authorization: Bearer &lt;token&gt;</code> header.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-body">
+            <h4>Middleware extracts the token</h4>
+            <p>The <code>RequireAuth</code> middleware reads the <code>Authorization</code> header, strips the <code>Bearer </code> prefix, and gets the raw JWT string.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-body">
+            <h4>Clerk SDK verifies the JWT</h4>
+            <p>The Clerk SDK validates the JWT signature against Clerk's public keys, checks expiration, and returns the session claims.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-body">
+            <h4>Claims are stored in context</h4>
+            <p>The middleware extracts user ID, organization role, and permissions from the JWT claims, and stores them in the Echo context.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">5</div>
+          <div class="flow-body">
+            <h4>Handler accesses user info</h4>
+            <p>Your handler can read <code>c.Get("user_id")</code>, <code>c.Get("user_role")</code>, etc. from the context.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>Context Values Set by Auth Middleware</h2>
+      <table>
+        <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>user_id</code></td><td>string</td><td>The Clerk user ID (e.g., <code>user_2abc123...</code>)</td></tr>
+          <tr><td><code>user_role</code></td><td>string</td><td>The user's role in the active organization (e.g., <code>admin</code>, <code>member</code>)</td></tr>
+          <tr><td><code>permissions</code></td><td>interface{}</td><td>Permissions associated with the user's organization membership</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Protecting Routes</h2>
+      <pre><code>// In router.go:
+
+// Public routes — no auth needed
+router.GET("/status", healthHandler.CheckHealth)
+
+// Protected routes — auth required
+authGroup := router.Group("/api/v1", middlewares.Auth.RequireAuth)
+authGroup.GET("/profile", handler.Handle(h.User.Handler, h.User.GetProfile, 200, &GetProfileReq{}))
+authGroup.POST("/orders", handler.Handle(h.Order.Handler, h.Order.Create, 201, &CreateOrderReq{}))</code></pre>
+
+      <h2>Accessing User Info in Handlers</h2>
+      <pre><code>func (h *UserHandler) GetProfile(c echo.Context, req *GetProfileReq) (*ProfileRes, error) {
+    userID := c.Get("user_id").(string)
+    role := c.Get("user_role").(string)
+
+    // Use userID to fetch user data from the database
+    user, err := h.services.User.GetByClerkID(userID)
+    if err != nil {
+        return nil, err
+    }
+    return &ProfileRes{Name: user.Name, Role: role}, nil
+}</code></pre>
+
+      <h2>Error Responses</h2>
+      <table>
+        <thead><tr><th>Scenario</th><th>HTTP Status</th><th>Error Code</th></tr></thead>
+        <tbody>
+          <tr><td>No Authorization header</td><td>401</td><td><code>UNAUTHORIZED</code></td></tr>
+          <tr><td>Invalid or expired JWT</td><td>401</td><td><code>UNAUTHORIZED</code></td></tr>
+          <tr><td>Valid JWT but insufficient permissions</td><td>403</td><td><code>FORBIDDEN</code></td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-info">
+        <div class="callout-title">💡 Getting your Clerk secret key</div>
+        <p>Go to <a href="https://dashboard.clerk.com" target="_blank">dashboard.clerk.com</a> → your application → "API Keys" → copy the "Secret key". It starts with <code>sk_test_</code> (development) or <code>sk_live_</code> (production). Set it as <code>BOILERPLATE_AUTH.SECRET_KEY</code> in your <code>.env</code> file.</p>
+      </div>
+
+      <div class="page-nav">
+        <a href="error-handling.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">Error Handling</span></a>
+        <a href="background-jobs.html" class="page-nav-next"><span class="page-nav-label">Next →</span><span class="page-nav-title">Background Jobs</span></a>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

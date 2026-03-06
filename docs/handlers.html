@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Handlers — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link active"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>Handlers</h1>
+      <p class="subtitle">The handler layer uses Go generics to eliminate boilerplate. Write your business logic; the framework handles binding, validation, logging, and tracing.</p>
+
+      <h2>Files Involved</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">base.go</span></td><td>Defines the <code>Handler</code> base struct and three generic functions: <code>Handle</code>, <code>HandleNoContent</code>, and <code>HandleFile</code>. This is the core of the handler system.</td><td>Without this, every handler would need 20+ lines of identical code for binding, validating, logging, and error handling. Go generics let you write it once.</td></tr>
+          <tr><td><span class="file-ref">handlers.go</span></td><td>Aggregates all handler groups (Health, OpenAPI, etc.) into a single <code>Handlers</code> struct passed to the router.</td><td>Single struct makes it easy to pass all handlers to the router at once.</td></tr>
+          <tr><td><span class="file-ref">health.go</span></td><td>Health check handler — pings PostgreSQL and Redis, returns status with response times.</td><td>Required for monitoring and load balancer health probes.</td></tr>
+          <tr><td><span class="file-ref">openapi.go</span></td><td>Serves the OpenAPI documentation UI from <code>static/openapi.html</code>.</td><td>Gives developers an interactive API explorer.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>The Handler Base Struct</h2>
+      <p>Every handler group embeds the <code>Handler</code> base struct:</p>
+      <pre><code>type Handler struct {
+    server   *server.Server
+    services *service.Services
+}</code></pre>
+      <p>It gives every handler access to the server (DB, Redis, config, logger) and services (business logic).</p>
+
+      <h2>Three Generic Handler Functions</h2>
+      <p>Instead of writing raw Echo handlers, you use one of three generic functions that handle all the boilerplate:</p>
+
+      <h3>1. <code>Handle[Req, Res]</code> — Returns JSON</h3>
+      <p>For endpoints that return a JSON response body.</p>
+      <pre><code>func Handle[Req Validatable, Res any](
+    base Handler,                                        // Base handler with dependencies
+    fn func(echo.Context, *Req) (*Res, error),           // Your business logic
+    statusCode int,                                      // HTTP status code on success
+    req *Req,                                            // Empty request struct for binding
+) echo.HandlerFunc</code></pre>
+
+      <p>What it does automatically:</p>
+      <ol>
+        <li>Logs "handling request" with the handler name and route</li>
+        <li>Binds the request body/params/query to your <code>Req</code> struct</li>
+        <li>Calls <code>Validate()</code> on the struct → returns 400 with field errors if invalid</li>
+        <li>Logs "validation successful" with duration</li>
+        <li>Calls your function <code>fn(c, req)</code></li>
+        <li>If error → handles it (returns appropriate HTTP error)</li>
+        <li>If success → returns <code>statusCode</code> with the <code>Res</code> as JSON</li>
+        <li>Logs "request completed" with total duration</li>
+        <li>Adds New Relic attributes for handler name, validation time, handler time</li>
+      </ol>
+
+      <h3>2. <code>HandleNoContent[Req]</code> — Returns no body</h3>
+      <p>For endpoints that return an empty body (e.g., 204 No Content, 202 Accepted).</p>
+      <pre><code>func HandleNoContent[Req Validatable](
+    base Handler,
+    fn func(echo.Context, *Req) error,    // No response return type
+    statusCode int,
+    req *Req,
+) echo.HandlerFunc</code></pre>
+
+      <h3>3. <code>HandleFile[Req]</code> — Returns a file download</h3>
+      <p>For endpoints that return a file (PDF, CSV, etc.).</p>
+      <pre><code>func HandleFile[Req Validatable](
+    base Handler,
+    fn func(echo.Context, *Req) ([]byte, error),  // Returns file bytes
+    statusCode int,
+    req *Req,
+    filename string,     // Download filename
+    contentType string,  // MIME type
+) echo.HandlerFunc</code></pre>
+
+      <h2>Building a New Handler</h2>
+      <p>Follow this step-by-step guide to add a new handler.</p>
+
+      <h3>Step 1: Define the request struct</h3>
+      <p>The request struct must implement the <code>Validatable</code> interface (it needs a <code>Validate()</code> method).</p>
+      <pre><code>// internal/handler/user.go
+
+type CreateUserRequest struct {
+    Name  string `json:"name" validate:"required,min=2,max=100"`
+    Email string `json:"email" validate:"required,email"`
+}
+
+func (r *CreateUserRequest) Validate() error {
+    return validator.New().Struct(r)
+}</code></pre>
+
+      <h3>Step 2: Define the response struct</h3>
+      <pre><code>type UserResponse struct {
+    ID        string    `json:"id"`
+    Name      string    `json:"name"`
+    Email     string    `json:"email"`
+    CreatedAt time.Time `json:"created_at"`
+}</code></pre>
+
+      <h3>Step 3: Write the handler function</h3>
+      <pre><code>type UserHandler struct {
+    Handler  // Embed base handler
+}
+
+func (h *UserHandler) Create(c echo.Context, req *CreateUserRequest) (*UserResponse, error) {
+    user, err := h.services.User.Create(req.Name, req.Email)
+    if err != nil {
+        return nil, err  // sqlerr.HandleError auto-maps DB errors
+    }
+    return &UserResponse{
+        ID:        user.ID.String(),
+        Name:      user.Name,
+        Email:     user.Email,
+        CreatedAt: user.CreatedAt,
+    }, nil
+}</code></pre>
+
+      <h3>Step 4: Register in handlers.go</h3>
+      <pre><code>type Handlers struct {
+    Health  *HealthHandler
+    OpenAPI *OpenAPIHandler
+    User    *UserHandler       // Add this
+}
+
+func NewHandlers(s *server.Server, services *service.Services) *Handlers {
+    base := newHandler(s, services)
+    return &Handlers{
+        Health:  &HealthHandler{Handler: base},
+        OpenAPI: &OpenAPIHandler{Handler: base},
+        User:    &UserHandler{Handler: base},  // Add this
+    }
+}</code></pre>
+
+      <h3>Step 5: Register the route</h3>
+      <pre><code>// router.go
+v1 := router.Group("/api/v1", middlewares.Auth.RequireAuth)
+v1.POST("/users", handler.Handle(
+    h.User.Handler,
+    h.User.Create,
+    http.StatusCreated,
+    &handler.CreateUserRequest{},
+))</code></pre>
+
+      <div class="callout callout-tip">
+        <div class="callout-title">💡 Tip</div>
+        <p>You don't need to write any request binding, validation, logging, or error handling code. The <code>Handle</code> function does all of that for you. Just focus on your business logic.</p>
+      </div>
+
+      <h2>Existing Handler: Health Check</h2>
+      <p><span class="file-ref">health.go</span></p>
+      <p>The health check endpoint (<code>GET /status</code>) verifies database and Redis connectivity:</p>
+      <ul>
+        <li>Pings PostgreSQL and measures response time</li>
+        <li>Pings Redis and measures response time</li>
+        <li>Returns overall status: <code>"healthy"</code> if both pass, <code>"unhealthy"</code> if either fails</li>
+        <li>Logs and reports to New Relic on failures</li>
+        <li>Returns the current environment name and timestamp</li>
+      </ul>
+
+      <div class="page-nav">
+        <a href="middleware.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">Middleware</span></a>
+        <a href="database.html" class="page-nav-next"><span class="page-nav-label">Next →</span><span class="page-nav-title">Database</span></a>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

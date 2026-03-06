@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email System — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link active"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>Email System</h1>
+      <p class="subtitle">Transactional emails sent via Resend, rendered from Go HTML templates, and processed asynchronously through the job queue.</p>
+
+      <h2>Files Involved</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">email/client.go</span></td><td>Creates the Resend API client. Provides a <code>SendEmail()</code> method that renders an HTML template with data and sends it via Resend.</td><td>Centralized email sending. Any part of the app that needs to send an email calls this client.</td></tr>
+          <tr><td><span class="file-ref">email/emails.go</span></td><td>Convenience methods for each email type (e.g., <code>SendWelcomeEmail</code>). Wraps <code>SendEmail()</code> with the correct template and data.</td><td>Individual email methods make the API clean: <code>client.SendWelcomeEmail(to, name)</code> instead of manually specifying templates and data each time.</td></tr>
+          <tr><td><span class="file-ref">email/templates.go</span></td><td>Defines template name constants (e.g., <code>TemplateWelcome = "welcome"</code>).</td><td>Type-safe template references. Using constants instead of strings prevents typos.</td></tr>
+          <tr><td><span class="file-ref">email/preview.go</span></td><td>Provides sample data for each template, used for email preview/testing.</td><td>When developing templates, you can render them with realistic test data without sending actual emails.</td></tr>
+          <tr><td><span class="file-ref">template/emails/*.html</span></td><td>The actual HTML email templates using Go's <code>html/template</code> syntax.</td><td>Templates are separate files for easy editing by non-developers. They use <code>{{.VariableName}}</code> placeholders.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>How Email Sending Works</h2>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-body">
+            <h4>Handler enqueues email job</h4>
+            <p>Your handler (or service) creates an email task and enqueues it to the Asynq job queue. The HTTP response returns immediately — the user doesn't wait for the email to send.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-body">
+            <h4>Asynq worker picks up the task</h4>
+            <p>The background job server dequeues the task and calls the email handler function.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-body">
+            <h4>Template rendered</h4>
+            <p>The email client loads the HTML template from <code>template/emails/</code>, executes it with the provided data (Go's <code>html/template</code>), and produces the final HTML.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-body">
+            <h4>Email sent via Resend</h4>
+            <p>The rendered HTML is sent through the <a href="https://resend.com" target="_blank">Resend</a> API.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>Adding a New Email</h2>
+
+      <h3>Step 1: Create the HTML template</h3>
+      <pre><code>&lt;!-- template/emails/password_reset.html --&gt;
+&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;body&gt;
+  &lt;h1&gt;Reset Your Password&lt;/h1&gt;
+  &lt;p&gt;Hi {{.UserFirstName}},&lt;/p&gt;
+  &lt;p&gt;Click the link below to reset your password:&lt;/p&gt;
+  &lt;a href="{{.ResetLink}}"&gt;Reset Password&lt;/a&gt;
+  &lt;p&gt;This link expires in 1 hour.&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+      <h3>Step 2: Register the template name</h3>
+      <pre><code>// email/templates.go
+const (
+    TemplateWelcome       Template = "welcome"
+    TemplatePasswordReset Template = "password_reset"  // Add this
+)</code></pre>
+
+      <h3>Step 3: Add preview data</h3>
+      <pre><code>// email/preview.go
+var PreviewData = map[string]map[string]string{
+    "welcome": {"UserFirstName": "John"},
+    "password_reset": {                          // Add this
+        "UserFirstName": "John",
+        "ResetLink":     "https://example.com/reset?token=abc123",
+    },
+}</code></pre>
+
+      <h3>Step 4: Create the convenience method</h3>
+      <pre><code>// email/emails.go
+func (c *Client) SendPasswordResetEmail(to, firstName, resetLink string) error {
+    return c.SendEmail(
+        to,
+        "Reset Your Password",
+        TemplatePasswordReset,
+        map[string]string{
+            "UserFirstName": firstName,
+            "ResetLink":     resetLink,
+        },
+    )
+}</code></pre>
+
+      <h3>Step 5: Create the background task</h3>
+      <p>See the <a href="background-jobs.html">Background Jobs</a> page for how to create and register the Asynq task.</p>
+
+      <h2>Template Variables</h2>
+      <p>Templates use Go's <code>html/template</code> syntax. Variables are passed as a <code>map[string]string</code>:</p>
+      <pre><code>// In the template:
+&lt;p&gt;Hi {{.UserFirstName}},&lt;/p&gt;
+
+// Passed as:
+data := map[string]string{
+    "UserFirstName": "John",
+}</code></pre>
+
+      <div class="callout callout-info">
+        <div class="callout-title">💡 Resend setup</div>
+        <p>Get your Resend API key from <a href="https://resend.com/api-keys" target="_blank">resend.com/api-keys</a> and set it as <code>BOILERPLATE_INTEGRATION.RESEND_API_KEY</code>. The default sender address is <code>onboarding@resend.dev</code> — update it in <code>client.go</code> for production.</p>
+      </div>
+
+      <div class="page-nav">
+        <a href="background-jobs.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">Background Jobs</span></a>
+        <a href="observability.html" class="page-nav-next"><span class="page-nav-label">Next →</span><span class="page-nav-title">Observability</span></a>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

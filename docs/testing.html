@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Testing — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link active"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>Testing</h1>
+      <p class="subtitle">Integration tests with real PostgreSQL databases via Testcontainers. No mocks — every test runs against actual infrastructure.</p>
+
+      <h2>Files Involved</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">container.go</span></td><td>Spins up a PostgreSQL Docker container, creates a test database with a random name, applies all migrations, and returns a connection pool. Handles cleanup.</td><td>Tests need a real database but shouldn't affect your development database. Each test gets an isolated, disposable PostgreSQL instance.</td></tr>
+          <tr><td><span class="file-ref">server.go</span></td><td>Creates a test <code>Server</code> instance configured for testing (disabled observability, test credentials).</td><td>Handlers and services need a <code>*server.Server</code>. This creates one pre-configured for the test environment.</td></tr>
+          <tr><td><span class="file-ref">helpers.go</span></td><td>High-level <code>SetupTest()</code> that combines container + server setup in one call. Also provides utility functions like <code>MustMarshalJSON()</code>, <code>ProjectRoot()</code>, and <code>Ptr[T]()</code>.</td><td>Tests should be concise. <code>SetupTest(t)</code> gives you everything in one line.</td></tr>
+          <tr><td><span class="file-ref">assertions.go</span></td><td>Custom assertion functions: <code>AssertTimestampsValid()</code>, <code>AssertValidUUID()</code>, <code>AssertEqualExceptTime()</code>, <code>AssertStringContains()</code>.</td><td>Common assertions for database-backed tests — checking UUIDs, timestamps, and struct equality while ignoring dynamic fields.</td></tr>
+          <tr><td><span class="file-ref">transaction.go</span></td><td>Transaction helpers: <code>WithTransaction()</code> (commits) and <code>WithRollbackTransaction()</code> (always rolls back).</td><td>Some tests need to write data and verify it (commit). Others need to write data, verify side effects, then undo everything (rollback). These helpers make both patterns easy.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>How Testcontainers Works</h2>
+      <p><a href="https://testcontainers.com" target="_blank">Testcontainers</a> uses the Docker API to create and manage containers programmatically from Go test code.</p>
+
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-body">
+            <h4>Docker starts PostgreSQL</h4>
+            <p>A <code>postgres:15-alpine</code> container is started with a random database name (e.g., <code>test_db_a1b2c3d4</code>). The test waits for the "database system is ready" log message.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-body">
+            <h4>Connection pool is created</h4>
+            <p>A <code>pgxpool.Pool</code> connects to the container. The test retries up to 5 times with 2-second delays (containers can take a moment to be ready).</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-body">
+            <h4>Migrations are applied</h4>
+            <p>All SQL migrations from <code>internal/database/migrations/</code> are run against the test database. Your test starts with a fully migrated schema.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-body">
+            <h4>Test runs</h4>
+            <p>Your test code runs against the real PostgreSQL instance. All queries, constraints, and triggers work exactly like production.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">5</div>
+          <div class="flow-body">
+            <h4>Cleanup</h4>
+            <p>The connection pool is closed and the Docker container is terminated. Nothing persists between tests.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>Writing a Test</h2>
+
+      <h3>Basic test structure</h3>
+      <pre><code>package myfeature_test
+
+import (
+    "testing"
+    apptest "github.com/yaswanth-byk/go-boilerplate/internal/testing"
+)
+
+func TestCreateUser(t *testing.T) {
+    // Setup: DB + server + cleanup — all in one line
+    testDB, server, cleanup := apptest.SetupTest(t)
+    defer cleanup()
+
+    // testDB.Pool is a real PostgreSQL connection pool
+    // server is a fully configured *server.Server
+
+    // Your test logic here...
+}</code></pre>
+
+      <h3>Using transaction helpers</h3>
+      <pre><code>func TestUserCreation(t *testing.T) {
+    testDB, _, cleanup := apptest.SetupTest(t)
+    defer cleanup()
+
+    // Committed transaction — data persists for assertions
+    err := apptest.WithTransaction(ctx, testDB, func(tx pgx.Tx) error {
+        _, err := tx.Exec(ctx, `INSERT INTO users (name, email) VALUES ($1, $2)`, "John", "john@example.com")
+        return err
+    })
+    require.NoError(t, err)
+
+    // Verify the data persisted
+    var count int
+    testDB.Pool.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&count)
+    assert.Equal(t, 1, count)
+}
+
+func TestUserValidation(t *testing.T) {
+    testDB, _, cleanup := apptest.SetupTest(t)
+    defer cleanup()
+
+    // Rollback transaction — data does NOT persist
+    err := apptest.WithRollbackTransaction(ctx, testDB, func(tx pgx.Tx) error {
+        // Insert and check a constraint violation
+        _, err := tx.Exec(ctx, `INSERT INTO users (name, email) VALUES ($1, $2)`, "", "")
+        return err  // Expect this to fail
+    })
+    assert.Error(t, err)  // Constraint violation
+    // Table is empty — the insert was rolled back
+}</code></pre>
+
+      <h2>Custom Assertions</h2>
+      <table>
+        <thead><tr><th>Function</th><th>What It Checks</th><th>Use Case</th></tr></thead>
+        <tbody>
+          <tr><td><code>AssertTimestampsValid(t, obj)</code></td><td><code>CreatedAt</code> and <code>UpdatedAt</code> fields are non-zero times</td><td>After inserting a record, verify DB-generated timestamps exist</td></tr>
+          <tr><td><code>AssertValidUUID(t, id)</code></td><td>UUID is not <code>uuid.Nil</code></td><td>After inserting a record, verify a UUID was generated</td></tr>
+          <tr><td><code>AssertEqualExceptTime(t, expected, actual)</code></td><td>All struct fields match <strong>except</strong> <code>time.Time</code> fields</td><td>Compare two structs but ignore DB-generated timestamps</td></tr>
+          <tr><td><code>AssertStringContains(t, s, subs...)</code></td><td>A string contains all specified substrings</td><td>Verify error messages or log output contain expected details</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Utility Functions</h2>
+      <table>
+        <thead><tr><th>Function</th><th>What It Does</th></tr></thead>
+        <tbody>
+          <tr><td><code>SetupTest(t)</code></td><td>Sets up DB container + server + cleanup in one call. Returns <code>(*TestDB, *server.Server, func())</code>.</td></tr>
+          <tr><td><code>MustMarshalJSON(t, v)</code></td><td>Marshals to JSON or fails the test. Useful for creating request bodies.</td></tr>
+          <tr><td><code>ProjectRoot(t)</code></td><td>Finds the project root by walking up from CWD until it finds <code>go.mod</code>.</td></tr>
+          <tr><td><code>Ptr[T](v)</code></td><td>Returns a pointer to any value. <code>Ptr(42)</code> returns <code>*int</code> pointing to 42. Uses Go generics.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Running Tests</h2>
+      <pre><code># From apps/backend/
+
+# Run all tests
+task test
+
+# Run tests with HTML coverage report
+task test:cover
+
+# Run a specific test
+go test ./internal/handler/... -run TestHealthCheck -v
+
+# Run tests in a specific package
+go test ./internal/repository/... -v</code></pre>
+
+      <div class="callout callout-warning">
+        <div class="callout-title">⚠️ Docker required</div>
+        <p>Docker Desktop (or Docker Engine) must be running for tests that use Testcontainers. If Docker is not available, container-based tests will fail with a connection error.</p>
+      </div>
+
+      <div class="callout callout-tip">
+        <div class="callout-title">💡 Test performance</div>
+        <p>Each test that calls <code>SetupTest()</code> starts a new PostgreSQL container. This takes 3-5 seconds. For test suites with many tests, consider sharing a single container across tests in the same package using <code>TestMain()</code>.</p>
+      </div>
+
+      <div class="page-nav">
+        <a href="typescript-packages.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">TypeScript Packages</span></a>
+        <div></div>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

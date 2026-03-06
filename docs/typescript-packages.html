@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TypeScript Packages — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link active"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>TypeScript Packages</h1>
+      <p class="subtitle">Three TypeScript packages in the monorepo generate API contracts, OpenAPI specs, and email templates consumed by the Go backend.</p>
+
+      <h2>Why TypeScript in a Go Project?</h2>
+      <p>These packages exist because certain tools in the TypeScript ecosystem (Zod for schema validation, ts-rest for OpenAPI generation, React Email for templates) are more mature and ergonomic than their Go equivalents. They generate static artifacts (JSON specs, HTML templates) that the Go backend consumes at runtime — there's no TypeScript running in production.</p>
+
+      <h2>Monorepo Tooling</h2>
+
+      <div class="card-grid">
+        <div class="card">
+          <div class="card-title"><span class="card-icon">🔧</span> Turborepo</div>
+          <p class="card-desc">Orchestrates tasks (build, dev, lint, test) across all packages. Caches build outputs so only changed packages are rebuilt. Configured in <code>turbo.json</code>.</p>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="card-icon">🐰</span> Bun</div>
+          <p class="card-desc">JavaScript runtime and package manager. Much faster than npm/yarn for installs and script execution. Used via <code>bun install</code>, <code>bun run dev</code>, etc.</p>
+        </div>
+      </div>
+
+      <h3>Root-level commands</h3>
+      <pre><code># Run from the project root
+bun run build          # Build all packages
+bun run dev            # Start all packages in dev mode (watch)
+bun run lint           # Lint all packages
+bun run lint:fix       # Lint with auto-fix
+bun run typecheck      # Type-check all packages
+bun run test           # Run all tests
+bun run clean          # Clean all build artifacts</code></pre>
+
+      <h2>packages/zod — Zod Schemas</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">src/health.ts</span></td><td>Defines Zod schemas for the health check response. Uses <code>extendApi()</code> from <code>@anatine/zod-openapi</code> to add OpenAPI metadata (descriptions, examples).</td><td>These schemas serve as the <strong>single source of truth</strong> for API contracts. They can be used for both runtime validation and static type generation.</td></tr>
+          <tr><td><span class="file-ref">src/utils.ts</span></td><td>Utility Zod schemas reused across multiple endpoints (e.g., UUID schema, paginated list schema, error response schema).</td><td>Shared schemas avoid duplication and ensure consistency across all API endpoints.</td></tr>
+          <tr><td><span class="file-ref">src/index.ts</span></td><td>Barrel file that re-exports all schemas from a single entry point.</td><td>Consumers import from <code>@repo/zod</code> instead of individual files.</td></tr>
+          <tr><td><span class="file-ref">package.json</span></td><td>Package config, declares this as <code>@repo/zod</code> in the monorepo.</td><td>Turborepo uses this to understand package dependencies and build order.</td></tr>
+          <tr><td><span class="file-ref">tsconfig.json</span></td><td>TypeScript config using <code>NodeNext</code> module resolution.</td><td>Ensures consistent TS behavior across the monorepo.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>How Zod schemas work</h3>
+      <pre><code>// packages/zod/src/health.ts
+import { z } from "zod";
+import { extendApi } from "@anatine/zod-openapi";
+
+export const HealthCheckResponseSchema = extendApi(
+  z.object({
+    status: z.string().describe("Overall health status"),
+    timestamp: z.string().describe("ISO 8601 timestamp"),
+    environment: z.string().describe("Current environment"),
+    checks: z.object({
+      database: z.object({
+        status: z.string(),
+        response_time: z.string(),
+      }),
+      redis: z.object({
+        status: z.string(),
+        response_time: z.string(),
+      }),
+    }),
+  }),
+  { description: "Health check response" }
+);</code></pre>
+
+      <h2>packages/openai — OpenAPI Generation</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">src/index.ts</span></td><td>Defines the OpenAPI contract using <code>ts-rest</code>. Maps HTTP endpoints to Zod schemas, sets up security schemes (Bearer JWT, API key).</td><td>The contract is the bridge between TypeScript schemas and the OpenAPI spec. It says "GET /status returns HealthCheckResponseSchema".</td></tr>
+          <tr><td><span class="file-ref">src/gen.ts</span></td><td>Script that generates the <code>openapi.json</code> file from the ts-rest contract. Outputs both <code>openapi.json</code> (backend) and <code>openai.json</code> (copy).</td><td>Converts the TypeScript contract to an OpenAPI 3.0.2 JSON spec that the Go backend serves at <code>/docs</code>.</td></tr>
+          <tr><td><span class="file-ref">src/contracts/health.ts</span></td><td>Defines the health check endpoint contract using ts-rest.</td><td>Each feature area has its own contract file for organization.</td></tr>
+          <tr><td><span class="file-ref">openai.json</span></td><td>The generated OpenAPI spec file.</td><td>This is the output artifact. Copied to <code>apps/backend/static/openapi.json</code> for serving.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Regenerating the OpenAPI spec</h3>
+      <pre><code>cd packages/openai
+bun run build      # or: bun gen</code></pre>
+      <p>This runs <code>src/gen.ts</code>, which reads the ts-rest contract, converts it to OpenAPI 3.0.2, and writes the JSON file.</p>
+
+      <h2>packages/emails — Email Templates</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">src/templates/welcome.tsx</span></td><td>Welcome email template built with <a href="https://react.email" target="_blank">React Email</a> components.</td><td>React Email lets you design emails with JSX instead of raw HTML. The output is compiled to HTML and placed in the Go backend's <code>template/emails/</code> directory.</td></tr>
+          <tr><td><span class="file-ref">package.json</span></td><td>Package config with React Email dependencies.</td><td>Declares <code>@react-email/components</code> as a dependency for building templates.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>The email workflow</h3>
+      <ol>
+        <li>Design emails in <code>packages/emails/src/templates/*.tsx</code> using JSX</li>
+        <li>Preview them with React Email's dev server: <code>cd packages/emails && bun run dev</code></li>
+        <li>Build/export the HTML: the compiled HTML goes to <code>apps/backend/template/emails/</code></li>
+        <li>The Go backend reads these HTML files with <code>html/template</code> and sends via Resend</li>
+      </ol>
+
+      <h2>How Packages Connect</h2>
+      <pre><code>packages/zod  ──defines schemas──►  packages/openai  ──generates──►  openapi.json
+                                                                         │
+                                                                         ▼
+packages/emails  ──exports HTML──►  apps/backend/template/emails/   apps/backend/static/openapi.json
+                                         │                              │
+                                         ▼                              ▼
+                                  Go email client renders       Go serves at /docs
+                                  and sends via Resend</code></pre>
+
+      <div class="page-nav">
+        <a href="observability.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">Observability</span></a>
+        <a href="testing.html" class="page-nav-next"><span class="page-nav-label">Next →</span><span class="page-nav-title">Testing</span></a>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

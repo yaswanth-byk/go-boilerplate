@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Server & Routing — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link active"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>Server & Routing</h1>
+      <p class="subtitle">The Server struct is the central dependency container. The router defines all endpoints and wires the middleware pipeline.</p>
+
+      <h2>Files Involved</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">server.go</span></td><td>Defines the <code>Server</code> struct that holds all shared dependencies (config, logger, DB, Redis, jobs). Manages HTTP server lifecycle (create, start, shutdown).</td><td>You need a single place to hold all shared dependencies so they can be passed down to handlers, services, and repositories without globals.</td></tr>
+          <tr><td><span class="file-ref">router.go</span></td><td>Creates the Echo router, attaches the full middleware pipeline, and registers route groups.</td><td>Separating route registration from the server keeps the server focused on infrastructure and the router focused on HTTP concerns.</td></tr>
+          <tr><td><span class="file-ref">system.go</span></td><td>Registers "system" routes that don't require authentication: health check, static files, and API docs.</td><td>System routes are separated from business routes so they can be reviewed and maintained independently.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>The Server Struct</h2>
+      <p>The <code>Server</code> struct acts as a <strong>dependency container</strong>. It holds every shared resource the application needs:</p>
+      <pre><code>type Server struct {
+    Config        *config.Config           // All configuration
+    Logger        *zerolog.Logger           // Structured logger
+    LoggerService *loggerPkg.LoggerService  // New Relic application
+    DB            *database.Database        // PostgreSQL connection pool
+    Redis         *redis.Client             // Redis client
+    httpServer    *http.Server              // Go standard library HTTP server
+    Job           *job.JobService           // Background job queue
+}</code></pre>
+
+      <h3>Why not use a dependency injection framework?</h3>
+      <p>Go favors explicit wiring over magic. The <code>Server</code> struct is created in <code>main.go</code> and passed to everything that needs it. This means:</p>
+      <ul>
+        <li>You can see exactly what depends on what by reading the code</li>
+        <li>The compiler catches missing dependencies at build time</li>
+        <li>Tests can substitute any dependency easily</li>
+      </ul>
+
+      <h2>Server Lifecycle</h2>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-num">1</div>
+          <div class="flow-body">
+            <h4><code>server.New(cfg, logger, loggerService)</code></h4>
+            <p>Creates the database pool (pgxpool with New Relic tracing), Redis client (with New Relic hooks), and starts the Asynq job server. If Redis is unavailable, a warning is logged but the server still starts.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">2</div>
+          <div class="flow-body">
+            <h4><code>srv.SetupHTTPServer(router)</code></h4>
+            <p>Creates a <code>net/http.Server</code> with the Echo router as the handler. Applies read/write/idle timeouts from config.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">3</div>
+          <div class="flow-body">
+            <h4><code>srv.Start()</code></h4>
+            <p>Calls <code>ListenAndServe()</code> on the configured port. This is run in a goroutine so the main goroutine can wait for shutdown signals.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-num">4</div>
+          <div class="flow-body">
+            <h4><code>srv.Shutdown(ctx)</code></h4>
+            <p>Gracefully shuts down: stops accepting new connections → waits for in-flight requests (up to 30s) → closes database pool → stops job server.</p>
+          </div>
+        </div>
+      </div>
+
+      <h2>Registered Routes</h2>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Handler</th><th>Auth?</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET</code></td><td><code>/status</code></td><td><code>HealthHandler.CheckHealth</code></td><td>No</td><td>Returns health status of DB and Redis with response times</td></tr>
+          <tr><td><code>GET</code></td><td><code>/docs</code></td><td><code>OpenAPIHandler.ServeOpenAPIUI</code></td><td>No</td><td>Serves the interactive OpenAPI (Swagger) documentation UI</td></tr>
+          <tr><td><code>GET</code></td><td><code>/static/*</code></td><td>Static file server</td><td>No</td><td>Serves static files from the <code>static/</code> directory</td></tr>
+          <tr><td colspan="5" style="text-align:center; color: var(--text-muted)"><em>/api/v1 group — add your routes here</em></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Adding your own routes</h3>
+      <pre><code>// In router.go, after the system routes:
+v1 := router.Group("/api/v1")
+
+// Public routes
+v1.GET("/products", handler.Handle(h.Product.Handler, h.Product.List, http.StatusOK, &ListProductsRequest{}))
+
+// Protected routes (require authentication)
+auth := v1.Group("", middlewares.Auth.RequireAuth)
+auth.POST("/products", handler.Handle(h.Product.Handler, h.Product.Create, http.StatusCreated, &CreateProductRequest{}))
+auth.PUT("/products/:id", handler.Handle(h.Product.Handler, h.Product.Update, http.StatusOK, &UpdateProductRequest{}))</code></pre>
+
+      <div class="page-nav">
+        <a href="configuration.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">Configuration</span></a>
+        <a href="middleware.html" class="page-nav-next"><span class="page-nav-label">Next →</span><span class="page-nav-title">Middleware</span></a>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

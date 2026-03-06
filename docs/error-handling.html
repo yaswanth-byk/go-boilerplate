@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error Handling — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header"><a href="index.html" class="sidebar-logo"><div class="sidebar-logo-icon">Go</div><div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div></a></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section"><div class="nav-section-label">Overview</div><a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a><a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a><a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a></div>
+        <div class="nav-section"><div class="nav-section-label">Backend</div><a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a><a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a><a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a><a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a><a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a><a href="error-handling.html" class="nav-link active"><span class="nav-icon">🛡️</span> Error Handling</a><a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a><a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a><a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a><a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a></div>
+        <div class="nav-section"><div class="nav-section-label">Packages</div><a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a></div>
+        <div class="nav-section"><div class="nav-section-label">Quality</div><a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a></div>
+      </nav>
+    </aside>
+    <main class="main"><div class="content">
+      <h1>Error Handling</h1>
+      <p class="subtitle">A three-layer error system that gives your API users clear, consistent, actionable error messages — including automatic mapping of database constraint violations to user-friendly HTTP responses.</p>
+
+      <h2>Files Involved</h2>
+      <table>
+        <thead><tr><th>File</th><th>Purpose</th><th>Why It Exists</th></tr></thead>
+        <tbody>
+          <tr><td><span class="file-ref">errs/http.go</span></td><td>Defines the <code>HTTPError</code> struct and constructor functions (<code>NewBadRequestError</code>, <code>NewNotFoundError</code>, etc.).</td><td>Every API error should have a consistent JSON shape. This file defines that shape and provides helpers to create errors.</td></tr>
+          <tr><td><span class="file-ref">errs/type.go</span></td><td>Defines error code constants (<code>BadRequest</code>, <code>Unauthorized</code>, etc.) and the <code>ErrorAction</code> struct for client-side redirects.</td><td>Enumerates all possible error types so the frontend can switch on the error code.</td></tr>
+          <tr><td><span class="file-ref">sqlerr/error.go</span></td><td>Defines PostgreSQL error codes, severity levels, and mapping functions.</td><td>Maps low-level PostgreSQL error codes (like <code>23505</code>) to semantic categories (like <code>UniqueViolation</code>).</td></tr>
+          <tr><td><span class="file-ref">sqlerr/handler.go</span></td><td>The <code>HandleError()</code> function — the main entry point for converting database errors to HTTP errors.</td><td>You call <code>sqlerr.HandleError(err)</code> in your repository and get back a user-friendly HTTP error automatically.</td></tr>
+          <tr><td><span class="file-ref">middleware/global.go</span></td><td>Global error handler that catches all errors (including Echo errors and panics).</td><td>Last line of defense — ensures every error returns a consistent JSON format.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Error Response Format</h2>
+      <p>Every error returns this JSON shape:</p>
+      <pre><code>{
+  "code": "BAD_REQUEST",
+  "message": "A User with this Email already exists",
+  "status": 400,
+  "override": true,
+  "errors": [
+    { "field": "email", "error": "is required" }
+  ],
+  "action": {
+    "type": "redirect",
+    "message": "Session expired",
+    "value": "/login"
+  }
+}</code></pre>
+
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>code</code></td><td>string</td><td>Machine-readable error code (e.g., <code>BAD_REQUEST</code>, <code>NOT_FOUND</code>, <code>USER_ALREADY_EXISTS</code>)</td></tr>
+          <tr><td><code>message</code></td><td>string</td><td>Human-readable error message for display</td></tr>
+          <tr><td><code>status</code></td><td>int</td><td>HTTP status code (400, 401, 403, 404, 500)</td></tr>
+          <tr><td><code>override</code></td><td>bool</td><td>If <code>true</code>, the frontend should display this message directly. If <code>false</code>, the frontend should use its own default message for this error code.</td></tr>
+          <tr><td><code>errors</code></td><td>array</td><td>Field-level validation errors (only for 400 errors with validation failures)</td></tr>
+          <tr><td><code>action</code></td><td>object</td><td>Optional. Instructs the frontend to take an action (e.g., redirect to login).</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Creating Errors</h2>
+      <pre><code>// 400 Bad Request
+errs.NewBadRequestError("Invalid input", true, nil, nil, nil)
+
+// 400 with custom error code
+code := "USER_ALREADY_EXISTS"
+errs.NewBadRequestError("User already exists", true, &code, nil, nil)
+
+// 400 with field-level validation errors
+fields := []errs.FieldError{
+    {Field: "email", Error: "is required"},
+    {Field: "name",  Error: "must be at least 2 characters"},
+}
+errs.NewBadRequestError("Validation failed", true, nil, fields, nil)
+
+// 401 Unauthorized
+errs.NewUnauthorizedError("Invalid token", false)
+
+// 403 Forbidden
+errs.NewForbiddenError("Insufficient permissions", true)
+
+// 404 Not Found
+errs.NewNotFoundError("User not found", true, nil)
+
+// 500 Internal Server Error (generic, hides details)
+errs.NewInternalServerError()</code></pre>
+
+      <h2>Automatic SQL Error Mapping</h2>
+      <p>This is one of the most powerful features of the boilerplate. The <code>sqlerr.HandleError()</code> function automatically converts PostgreSQL constraint errors into user-friendly HTTP errors.</p>
+
+      <h3>How it works</h3>
+      <p>When a database query fails with a constraint violation, PostgreSQL returns a structured error with the table name, column name, and constraint name. The <code>sqlerr</code> package reads these fields and generates appropriate error messages.</p>
+
+      <table>
+        <thead><tr><th>PostgreSQL Error Code</th><th>HTTP Status</th><th>Generated Message Example</th></tr></thead>
+        <tbody>
+          <tr><td>23505 — Unique violation</td><td>400</td><td>"A User with this Email already exists"</td></tr>
+          <tr><td>23503 — Foreign key violation</td><td>400</td><td>"The referenced Organization does not exist"</td></tr>
+          <tr><td>23502 — Not null violation</td><td>400</td><td>"The Name is required"</td></tr>
+          <tr><td>23514 — Check violation</td><td>400</td><td>"The Age value does not meet required conditions"</td></tr>
+          <tr><td>No rows found</td><td>404</td><td>"User not found"</td></tr>
+          <tr><td>All other errors</td><td>500</td><td>"Internal Server Error"</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Message generation logic</h3>
+      <ul>
+        <li><strong>Table names</strong> are singularized (e.g., "users" → "User") and title-cased</li>
+        <li><strong>Column names</strong> are humanized (e.g., "first_name" → "First Name")</li>
+        <li><strong>Foreign key columns</strong> ending in <code>_id</code> are converted to entity names (e.g., "organization_id" → "Organization")</li>
+        <li><strong>Error codes</strong> are generated from table + action (e.g., <code>USER_ALREADY_EXISTS</code>, <code>ORGANIZATION_NOT_FOUND</code>)</li>
+      </ul>
+
+      <h3>Usage in repositories</h3>
+      <pre><code>func (r *UserRepo) Create(ctx context.Context, name, email string) (*model.User, error) {
+    var user model.User
+    err := r.db.Pool.QueryRow(ctx,
+        `INSERT INTO users (name, email) VALUES ($1, $2) RETURNING *`,
+        name, email,
+    ).Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt)
+
+    if err != nil {
+        return nil, sqlerr.HandleError(err)
+        // If email is duplicate → "A User with this Email already exists" (400)
+        // If name is null     → "The Name is required" (400, with field errors)
+        // If no rows          → "User not found" (404)
+    }
+    return &user, nil
+}</code></pre>
+
+      <div class="callout callout-tip">
+        <div class="callout-title">💡 Key Insight</div>
+        <p>You don't need to manually check for constraint violations. Name your database constraints consistently (e.g., <code>unique_users_email</code>, <code>fk_orders_user_id</code>), and <code>sqlerr</code> will generate clear error messages automatically.</p>
+      </div>
+
+      <div class="page-nav">
+        <a href="database.html"><span class="page-nav-label">← Previous</span><span class="page-nav-title">Database</span></a>
+        <a href="authentication.html" class="page-nav-next"><span class="page-nav-label">Next →</span><span class="page-nav-title">Authentication</span></a>
+      </div>
+    </div></main>
+  </div>
+</body>
+</html>

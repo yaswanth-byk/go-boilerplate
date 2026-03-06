@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a href="index.html" class="sidebar-logo">
+          <div class="sidebar-logo-icon">Go</div>
+          <div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div>
+        </a>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-label">Overview</div>
+          <a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a>
+          <a href="getting-started.html" class="nav-link"><span class="nav-icon">🚀</span> Getting Started</a>
+          <a href="architecture.html" class="nav-link active"><span class="nav-icon">🏗️</span> Architecture</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Backend</div>
+          <a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a>
+          <a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a>
+          <a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a>
+          <a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a>
+          <a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a>
+          <a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a>
+          <a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a>
+          <a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a>
+          <a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a>
+          <a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Packages</div>
+          <a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Quality</div>
+          <a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <div class="content">
+        <h1>Architecture</h1>
+        <p class="subtitle">Understand how the monorepo is organized, how a request flows through the system, and which files are responsible for what.</p>
+
+        <h2>Monorepo Structure</h2>
+        <p>The project uses a <strong>Turborepo</strong> monorepo with two top-level directories:</p>
+
+        <div class="card-grid">
+          <div class="card">
+            <div class="card-title"><span class="card-icon">📂</span> apps/</div>
+            <p class="card-desc">Deployable applications. Currently contains the Go backend. You can add frontends, admin panels, or other services here.</p>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="card-icon">📦</span> packages/</div>
+            <p class="card-desc">Shared TypeScript libraries. Contains Zod schemas, OpenAPI generator, and email templates. Consumed by apps and each other.</p>
+          </div>
+        </div>
+
+        <h3>Why a monorepo?</h3>
+        <ul>
+          <li><strong>Shared types:</strong> Zod schemas define API contracts once, used by both frontend and backend</li>
+          <li><strong>Atomic changes:</strong> Update a schema and its consumers in a single commit</li>
+          <li><strong>Single CI pipeline:</strong> One repo to test, lint, and deploy everything</li>
+          <li><strong>Turborepo caching:</strong> Only rebuild what changed — fast CI times</li>
+        </ul>
+
+        <h2>Backend Architecture</h2>
+        <p>The Go backend follows a <strong>clean architecture</strong> pattern with clear separation of concerns. Dependencies flow inward — outer layers depend on inner layers, never the reverse.</p>
+
+        <pre><code>┌──────────────────────────────────────────────────────────┐
+│                     HTTP Request                         │
+├────────────────────────┬─────────────────────────────────┤
+│     Middleware Stack   │  Rate Limit → CORS → Auth →     │
+│   (9 layers deep)      │  Request ID → Tracing → Logger  │
+├────────────────────────┴─────────────────────────────────┤
+│                      Router                              │
+│              Maps URL → Handler                          │
+├──────────────────────────────────────────────────────────┤
+│                     Handlers                             │
+│     Go generics for type-safe request/response           │
+│     Automatic validation, logging, tracing               │
+├──────────────────────────────────────────────────────────┤
+│                     Services                             │
+│     Business logic, orchestration, external APIs         │
+├──────────────────────────────────────────────────────────┤
+│                   Repositories                           │
+│     Database queries (pgx), no business logic            │
+├──────────────────────────────────────────────────────────┤
+│                    Database                              │
+│     PostgreSQL (pgxpool) + Redis (go-redis)              │
+└──────────────────────────────────────────────────────────┘</code></pre>
+
+        <h2>Request Lifecycle</h2>
+        <p>Here's exactly what happens when an HTTP request hits the server:</p>
+
+        <div class="flow">
+          <div class="flow-step">
+            <div class="flow-num">1</div>
+            <div class="flow-body">
+              <h4>Rate Limiter</h4>
+              <p>Checks if the client has exceeded 20 requests/second. If yes, returns 429 immediately without running any further middleware.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">2</div>
+            <div class="flow-body">
+              <h4>CORS</h4>
+              <p>Adds CORS headers for allowed origins. Handles preflight OPTIONS requests automatically.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">3</div>
+            <div class="flow-body">
+              <h4>Security Headers</h4>
+              <p>Adds X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, and other security headers.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">4</div>
+            <div class="flow-body">
+              <h4>Request ID</h4>
+              <p>Generates a UUID and attaches it to the request context. If the client sends an <code>X-Request-ID</code> header, that value is used instead. The ID is returned in the response headers.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">5</div>
+            <div class="flow-body">
+              <h4>New Relic Transaction</h4>
+              <p>Starts a New Relic transaction. All database queries, Redis commands, and logs within this request are linked to this transaction.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">6</div>
+            <div class="flow-body">
+              <h4>Enhanced Tracing</h4>
+              <p>Adds custom attributes (IP, user agent, request ID, user ID) to the New Relic transaction for better filtering in the dashboard.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">7</div>
+            <div class="flow-body">
+              <h4>Context Enrichment</h4>
+              <p>Creates a per-request Zerolog logger pre-populated with request ID, method, path, IP, and trace IDs. This logger is stored in the Echo context so all downstream code can use it.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">8</div>
+            <div class="flow-body">
+              <h4>Request Logger</h4>
+              <p>After the handler runs, logs the completed request with status code, latency, method, URI, and any error. Uses Info for 2xx, Warn for 4xx, Error for 5xx.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">9</div>
+            <div class="flow-body">
+              <h4>Panic Recovery</h4>
+              <p>Catches any Go panics and converts them to 500 Internal Server Error responses instead of crashing the entire server.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-num">10</div>
+            <div class="flow-body">
+              <h4>Handler Execution</h4>
+              <p>The router dispatches to the matched handler. The <code>Handle</code> generic function binds the request, validates it, calls your business logic, and returns the typed response.</p>
+            </div>
+          </div>
+        </div>
+
+        <h2>Directory Map</h2>
+        <p>Every directory in the backend and its purpose:</p>
+
+        <table>
+          <thead>
+            <tr><th>Directory</th><th>Purpose</th><th>Key Files</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>cmd/go-boilerplate/</code></td>
+              <td>Application entry point — wires everything together</td>
+              <td><code>main.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/config/</code></td>
+              <td>Configuration loading from env vars, struct definitions, validation</td>
+              <td><code>config.go</code>, <code>observability.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/database/</code></td>
+              <td>PostgreSQL connection pool, DSN construction, migration runner</td>
+              <td><code>database.go</code>, <code>migrator.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/database/migrations/</code></td>
+              <td>SQL migration files (embedded in binary at compile time)</td>
+              <td><code>001_setup.sql</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/errs/</code></td>
+              <td>Structured HTTP error types (400, 401, 403, 404, 500)</td>
+              <td><code>http.go</code>, <code>type.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/handler/</code></td>
+              <td>HTTP handlers with Go generics for type-safe request/response</td>
+              <td><code>base.go</code>, <code>handlers.go</code>, <code>health.go</code>, <code>openapi.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/lib/email/</code></td>
+              <td>Resend email client, template definitions, preview data</td>
+              <td><code>client.go</code>, <code>emails.go</code>, <code>templates.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/lib/job/</code></td>
+              <td>Asynq job queue setup, task definitions, background handlers</td>
+              <td><code>job.go</code>, <code>handlers.go</code>, <code>email_tasks.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/lib/utils/</code></td>
+              <td>Shared utility functions (JSON pretty-printing, etc.)</td>
+              <td><code>utils.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/logger/</code></td>
+              <td>Zerolog configuration, New Relic log forwarding, pgx logging</td>
+              <td><code>logger.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/middleware/</code></td>
+              <td>9 middleware layers: auth, CORS, rate limit, tracing, logging, etc.</td>
+              <td><code>middleware.go</code>, <code>global.go</code>, <code>auth.go</code>, <code>context.go</code>, <code>tracing.go</code>, <code>request_id.go</code>, <code>rate-limit.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/model/</code></td>
+              <td>Data models (empty — add your domain models here)</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>internal/repository/</code></td>
+              <td>Database access layer (SQL queries, no business logic)</td>
+              <td><code>repositories.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/router/</code></td>
+              <td>Route definitions and middleware pipeline setup</td>
+              <td><code>router.go</code>, <code>system.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/server/</code></td>
+              <td>Server struct (dependency container), lifecycle (start/shutdown)</td>
+              <td><code>server.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/service/</code></td>
+              <td>Business logic layer, external API orchestration</td>
+              <td><code>services.go</code>, <code>auth.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/sqlerr/</code></td>
+              <td>PostgreSQL error code mapping → user-friendly HTTP errors</td>
+              <td><code>error.go</code>, <code>handler.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/testing/</code></td>
+              <td>Test infrastructure: Testcontainers, helpers, assertions</td>
+              <td><code>container.go</code>, <code>server.go</code>, <code>helpers.go</code>, <code>assertions.go</code>, <code>transaction.go</code></td>
+            </tr>
+            <tr>
+              <td><code>internal/validation/</code></td>
+              <td>Request validation framework with field-level error reporting</td>
+              <td><code>utils.go</code></td>
+            </tr>
+            <tr>
+              <td><code>static/</code></td>
+              <td>Static files served at <code>/static/*</code> (OpenAPI JSON + UI)</td>
+              <td><code>openapi.json</code>, <code>openapi.html</code></td>
+            </tr>
+            <tr>
+              <td><code>template/</code></td>
+              <td>Go HTML templates for transactional emails</td>
+              <td><code>emails/welcome.html</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Dependency Injection</h2>
+        <p>Dependencies are wired manually in <code>main.go</code> (no framework). The <code>Server</code> struct acts as the dependency container:</p>
+
+        <pre><code>// main.go — Dependency wiring
+srv    := server.New(cfg, &log, loggerService)  // DB, Redis, Jobs
+repos  := repository.NewRepositories(srv)        // Repos need DB
+services := service.NewServices(srv, repos)      // Services need repos
+handlers := handler.NewHandlers(srv, services)   // Handlers need services
+router := router.NewRouter(srv, handlers, services) // Router needs handlers</code></pre>
+
+        <p>This pattern is simple, explicit, and testable. In tests, you can substitute any dependency (e.g., use a test database instead of production).</p>
+
+        <div class="page-nav">
+          <a href="getting-started.html">
+            <span class="page-nav-label">← Previous</span>
+            <span class="page-nav-title">Getting Started</span>
+          </a>
+          <a href="configuration.html" class="page-nav-next">
+            <span class="page-nav-label">Next →</span>
+            <span class="page-nav-title">Configuration</span>
+          </a>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

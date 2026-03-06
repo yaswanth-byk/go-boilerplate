@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Getting Started — Go Boilerplate Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <button class="menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a href="index.html" class="sidebar-logo">
+          <div class="sidebar-logo-icon">Go</div>
+          <div><div class="sidebar-logo-text">Go Boilerplate</div><div class="sidebar-logo-version">v1.0.0</div></div>
+        </a>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-label">Overview</div>
+          <a href="index.html" class="nav-link"><span class="nav-icon">🏠</span> Introduction</a>
+          <a href="getting-started.html" class="nav-link active"><span class="nav-icon">🚀</span> Getting Started</a>
+          <a href="architecture.html" class="nav-link"><span class="nav-icon">🏗️</span> Architecture</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Backend</div>
+          <a href="configuration.html" class="nav-link"><span class="nav-icon">⚙️</span> Configuration</a>
+          <a href="server.html" class="nav-link"><span class="nav-icon">🌐</span> Server & Routing</a>
+          <a href="middleware.html" class="nav-link"><span class="nav-icon">🔗</span> Middleware</a>
+          <a href="handlers.html" class="nav-link"><span class="nav-icon">📡</span> Handlers</a>
+          <a href="database.html" class="nav-link"><span class="nav-icon">🗄️</span> Database</a>
+          <a href="error-handling.html" class="nav-link"><span class="nav-icon">🛡️</span> Error Handling</a>
+          <a href="authentication.html" class="nav-link"><span class="nav-icon">🔐</span> Authentication</a>
+          <a href="background-jobs.html" class="nav-link"><span class="nav-icon">⏳</span> Background Jobs</a>
+          <a href="email-system.html" class="nav-link"><span class="nav-icon">📧</span> Email System</a>
+          <a href="observability.html" class="nav-link"><span class="nav-icon">📊</span> Observability</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Packages</div>
+          <a href="typescript-packages.html" class="nav-link"><span class="nav-icon">📦</span> TypeScript Packages</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Quality</div>
+          <a href="testing.html" class="nav-link"><span class="nav-icon">🧪</span> Testing</a>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <div class="content">
+        <h1>Getting Started</h1>
+        <p class="subtitle">Everything you need to get the boilerplate running on your local machine in under 10 minutes.</p>
+
+        <h2>Prerequisites</h2>
+        <p>You need the following tools installed before proceeding. Each one plays a specific role:</p>
+
+        <table>
+          <thead>
+            <tr><th>Tool</th><th>Minimum Version</th><th>Why You Need It</th><th>Install</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Go</strong></td><td>≥ 1.21</td>
+              <td>The backend is written entirely in Go. The Go toolchain compiles, runs, and tests the application.</td>
+              <td><a href="https://go.dev/dl/" target="_blank">go.dev/dl</a></td>
+            </tr>
+            <tr>
+              <td><strong>Node.js</strong></td><td>≥ 22</td>
+              <td>Required for running the TypeScript packages (Zod schemas, OpenAPI generator, email templates).</td>
+              <td><a href="https://nodejs.org/" target="_blank">nodejs.org</a></td>
+            </tr>
+            <tr>
+              <td><strong>Bun</strong></td><td>≥ 1.3</td>
+              <td>The JavaScript/TypeScript package manager and runtime. Much faster than npm/yarn. Used by the monorepo.</td>
+              <td><code>curl -fsSL https://bun.sh/install | bash</code></td>
+            </tr>
+            <tr>
+              <td><strong>PostgreSQL</strong></td><td>≥ 15</td>
+              <td>The primary database. All application data is stored here. You can use a local install or a managed service.</td>
+              <td><code>brew install postgresql</code> or <a href="https://www.pgadmin.org/" target="_blank">pgAdmin</a></td>
+            </tr>
+            <tr>
+              <td><strong>Redis</strong></td><td>≥ 7</td>
+              <td>Used as the backend for the Asynq job queue (background task processing) and for caching.</td>
+              <td><code>brew install redis</code></td>
+            </tr>
+            <tr>
+              <td><strong>Task</strong></td><td>≥ 3</td>
+              <td>A task runner (like Make but simpler). Used to run, build, test, and lint the Go backend.</td>
+              <td><code>brew install go-task</code></td>
+            </tr>
+            <tr>
+              <td><strong>Docker</strong></td><td>Latest</td>
+              <td>Only needed for running tests. Testcontainers spins up real PostgreSQL instances in Docker.</td>
+              <td><a href="https://www.docker.com/" target="_blank">docker.com</a></td>
+            </tr>
+            <tr>
+              <td><strong>golangci-lint</strong></td><td>Latest</td>
+              <td>A fast Go linters aggregator. Runs dozens of linters in parallel to catch bugs and style issues.</td>
+              <td><code>brew install golangci-lint</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Step 1: Clone the Repository</h2>
+        <pre><code>git clone https://github.com/yaswanth-byk/go-boilerplate.git
+cd go-boilerplate</code></pre>
+
+        <h2>Step 2: Install Dependencies</h2>
+
+        <h3>TypeScript packages (monorepo-wide)</h3>
+        <p>This installs all Node.js dependencies for the TypeScript packages (Zod, OpenAPI generator, email templates) and dev tools (Turborepo, TypeScript).</p>
+        <pre><code>bun install</code></pre>
+
+        <h3>Go modules</h3>
+        <p>This downloads all Go dependencies defined in <code>go.mod</code>. They're cached locally in your Go module cache.</p>
+        <pre><code>cd apps/backend
+go mod download</code></pre>
+
+        <h2>Step 3: Create the Database</h2>
+        <p>The application expects a PostgreSQL database named <code>boilerplate</code>. You can create it in one of several ways:</p>
+
+        <h4>Option A: Command line</h4>
+        <pre><code>createdb boilerplate</code></pre>
+
+        <h4>Option B: SQL statement</h4>
+        <pre><code>-- In psql or any SQL client:
+CREATE DATABASE boilerplate;</code></pre>
+
+        <h4>Option C: pgAdmin</h4>
+        <p>Right-click "Databases" → "Create" → "Database" → name it <code>boilerplate</code> (all lowercase).</p>
+
+        <div class="callout callout-warning">
+          <div class="callout-title">⚠️ Important</div>
+          <p>The database name must be <strong>exactly</strong> <code>boilerplate</code> in lowercase. PostgreSQL is case-sensitive when names are quoted. Creating "Boilerplate" in pgAdmin (with quotes) will result in a "database not found" error.</p>
+        </div>
+
+        <h2>Step 4: Configure Environment Variables</h2>
+
+        <p>Copy the sample config and customize it:</p>
+        <pre><code>cd apps/backend
+cp .env.sample .env</code></pre>
+
+        <p>Open <code>.env</code> in your editor. Here are the critical values you must set:</p>
+
+        <table>
+          <thead>
+            <tr><th>Variable</th><th>What to Set</th><th>Required?</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>BOILERPLATE_DATABASE.PASSWORD</code></td>
+              <td>Your PostgreSQL password for the <code>postgres</code> user</td>
+              <td><span class="badge badge-required">Required</span></td>
+            </tr>
+            <tr>
+              <td><code>BOILERPLATE_AUTH.SECRET_KEY</code></td>
+              <td>Your Clerk secret key (starts with <code>sk_test_</code> or <code>sk_live_</code>)</td>
+              <td><span class="badge badge-required">Required</span></td>
+            </tr>
+            <tr>
+              <td><code>BOILERPLATE_INTEGRATION.RESEND_API_KEY</code></td>
+              <td>Your Resend API key (starts with <code>re_</code>)</td>
+              <td><span class="badge badge-required">Required</span></td>
+            </tr>
+            <tr>
+              <td><code>BOILERPLATE_REDIS.ADDRESS</code></td>
+              <td>Redis URL, usually <code>redis://localhost:6379</code></td>
+              <td><span class="badge badge-required">Required</span></td>
+            </tr>
+            <tr>
+              <td><code>BOILERPLATE_OBSERVABILITY.NEW_RELIC.LICENSE_KEY</code></td>
+              <td>Your New Relic license key (leave empty to disable)</td>
+              <td>Optional</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>See the <a href="configuration.html">Configuration</a> page for a full reference of every variable.</p>
+
+        <h2>Step 5: Start the Services</h2>
+
+        <h3>Make sure PostgreSQL and Redis are running</h3>
+        <pre><code># macOS (Homebrew)
+brew services start postgresql
+brew services start redis
+
+# Verify they're running
+pg_isready      # Should say "accepting connections"
+redis-cli ping  # Should say "PONG"</code></pre>
+
+        <h3>Start the backend</h3>
+        <pre><code>cd apps/backend
+task run</code></pre>
+
+        <p>You should see output like:</p>
+        <pre><code>2026-03-06 10:00:00 INF starting server port=8080 env=local</code></pre>
+
+        <h3>Start TypeScript packages in dev mode (optional)</h3>
+        <pre><code># From the project root
+bun run dev</code></pre>
+
+        <h2>Step 6: Verify It Works</h2>
+
+        <h3>Health check</h3>
+        <pre><code>curl http://localhost:8080/status</code></pre>
+        <p>Expected response:</p>
+        <pre><code>{
+  "status": "healthy",
+  "timestamp": "2026-03-06T15:00:00Z",
+  "environment": "local",
+  "checks": {
+    "database": { "status": "healthy", "response_time": "1.5ms" },
+    "redis":    { "status": "healthy", "response_time": "0.8ms" }
+  }
+}</code></pre>
+
+        <h3>API documentation</h3>
+        <p>Open <a href="http://localhost:8080/docs" target="_blank">http://localhost:8080/docs</a> in your browser to see the interactive OpenAPI documentation.</p>
+
+        <h2>Common Issues</h2>
+
+        <table>
+          <thead>
+            <tr><th>Error</th><th>Cause</th><th>Fix</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>database "boilerplate" does not exist</code></td>
+              <td>The PostgreSQL database hasn't been created yet</td>
+              <td>Run <code>createdb boilerplate</code></td>
+            </tr>
+            <tr>
+              <td><code>password authentication failed</code></td>
+              <td>Wrong password in <code>.env</code></td>
+              <td>Update <code>BOILERPLATE_DATABASE.PASSWORD</code></td>
+            </tr>
+            <tr>
+              <td><code>connection refused (port 5432)</code></td>
+              <td>PostgreSQL is not running</td>
+              <td><code>brew services start postgresql</code></td>
+            </tr>
+            <tr>
+              <td><code>connection refused (port 6379)</code></td>
+              <td>Redis is not running</td>
+              <td><code>brew services start redis</code></td>
+            </tr>
+            <tr>
+              <td><code>task: No Taskfile found</code></td>
+              <td>You're not in the <code>apps/backend</code> directory</td>
+              <td><code>cd apps/backend</code> then retry</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="page-nav">
+          <a href="index.html">
+            <span class="page-nav-label">← Previous</span>
+            <span class="page-nav-title">Introduction</span>
+          </a>
+          <a href="architecture.html" class="page-nav-next">
+            <span class="page-nav-label">Next →</span>
+            <span class="page-nav-title">Architecture</span>
+          </a>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
